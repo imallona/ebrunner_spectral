@@ -1,0 +1,30 @@
+```{r}
+WD <- '/home/imallona/giulia'
+
+```
+
+```{r}
+d <- list()
+
+for (fn in list.files(WD, pattern = ".*out$", recursive = TRUE)) {
+    gene <- dirname(fn)
+    d[[gene]][[fn]] <- read.table(file.path(WD, fn), col.names = c('kmer', 'count', 'id'))
+    d[[gene]][[fn]] <- cbind(d[[gene]][[fn]],
+                             strcapture(
+                                 pattern = "exon_coord=(.*);.*(exon:.*);Parent.*(gene_id=.*);.*(transcript_id=.*);gene_type.*",
+                                 x = d[[gene]][[fn]]$id,
+                                 proto = list(coord = character(), exon = character(),
+                                              gene = character(), transcript = character())))
+}
+
+```
+
+Check the kmers co-occurrence across transcripts from the same gene
+
+```{r}
+for (gene in names(d)) {
+    foo <- as.data.frame(table(as.character(unlist(sapply(d[[gene]], function(x) return(x$kmer))))))
+
+    print(table(foo))
+}
+```

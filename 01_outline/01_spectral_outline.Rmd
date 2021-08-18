@@ -1,0 +1,60 @@
+# Scope
+
+## Criteria 
+1.Specific for gene (in this case transcription factors)
+
+2.Non – overlapping capture sequences 
+
+3.Recognising as many transcript variants as possible
+
+4.~ 300 bp from 5’ end 
+
+5.In CDS
+
+6.Evenly spaced in gene
+
+7.GC content upstream of  probe binding
+
+8.Thermodynamic properties probe binding 
+
+## Importance criteria
+
+A.In CDS
+B.Specificity 
+C.Thermodynamic properties determined by the program itself
+D.GC content upstream of probe
+E.As many transcript variants as possible 
+F.Evenly spaced in gene (+ non-overlapping) in as many CDSs as possible connected to E 
+G.~ 300 bp from 5’ end CDS
+
+
+
+# Define
+
+- path/URL to the GTF
+- path to the structured file indicating the target genes to be analysed
+- config file
+  - defining the GTF feature to be used (exon, CDS, etc)
+  
+# Read targets genesymbols/identifiers file
+
+
+# Read and subset GTF
+- read the file line by line / keep only if the record is within the target gene list
+
+# Data structure features, e.g. exons, to a list of:
+
+[ gene_id = gene_id,
+     feature_type = exon,
+     features = data.frame(feature_id = exon_id,
+                           transcript_id = transcript_id,
+                           chr,
+                           start,
+                           end,
+                           strand)) ]
+                           
+# Define where the 5' CDS point is, per each gene (clarify)
+
+five_primes_to_avoid <- [chr, start, end] list
+
+# 
