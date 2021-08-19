@@ -57,11 +57,14 @@ Gm7341
 Lactb2
 Cyp20a1
 Abca12
+Adgrg1
+Ndrg2
+Dmkn
 EOF
 
 # grep genes of interest in gtf and transform to bed6
 zcat "$GTF".gz | grep -v "^#" |\
-    grep -f "$FEATURES" | grep -e "exon\|gene\|transcript" | \
+    grep -w -f "$FEATURES" | grep -e "exon\|gene\|transcript" | \
     awk '{OFS=FS="\t"; print $1,$4,$5,$9,$3,$7}'  > selected.bed
 
 wc -l selected.bed
@@ -130,7 +133,7 @@ do
         gene_"$gene"_trans_"$transcript"_exon_"$exon".fa
 
     mkdir -p tmp/"$gene"
-    cat gene_"$gene"_trans_"$transcript"_exon_"$exon".fa | gzip -c > tmp/"$gene"/gene_"$gene".fa.gz
+    gzip gene_"$gene"_trans_"$transcript"_exon_"$exon".fa -c > tmp/"$gene"/gene_"$gene"_trans_"$transcript"_exon_"$exon".fa.gz
     
     rm "$i".bed "$i".fa "$i".wordcount gene_"$gene"_trans_"$transcript"_exon_"$exon".out \
        gene_"$gene"_trans_"$transcript"_exon_"$exon".fa
@@ -197,7 +200,7 @@ mkdir -p mapping
 
 samtools view mapping/kmers_"$KMER_LENGTH"Aligned.out.bam  | \
     grep -w 'NH:i:1' | \
-    awk '{OFS=FS="\t"; print $1,$3,$4,$6,$12,$13,$14,$15,$16,$17}' | \
+    awk '{OFS=FS="\t"; print $1,$3,$4,$6,$12,$13,$14,$15,$16,$17,$10}' | \
     pigz -p $NTHREADS --stdout > mapping/kmers_"$KMER_LENGTH".uniques.gz
 
 

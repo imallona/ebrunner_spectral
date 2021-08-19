@@ -13,6 +13,23 @@ output:
     theme: lumen
 ---
 
+```{r}
+suppressPackageStartupMessages({
+    library(knitr)
+})
+```
+
+```{r}
+opts_chunk$set(fig.width = 5,
+               fig.height = 5,
+               dev = 'png',
+               cache = FALSE,
+               include = TRUE,
+               cache.lazy = FALSE,
+               warning = TRUE,
+               echo = TRUE,
+               message = TRUE)
+```
 
 ```{r}
 WD <- '/home/imallona/giulia'
@@ -20,19 +37,18 @@ KMER_LENGTH <- 25
 NTHREADS <- 10
 MAPPING <- file.path(WD, 'mapping', sprintf('kmers_%s.uniques.gz', KMER_LENGTH))
 FILTERED_BED <- file.path(WD, 'safe_exons.bed')
+
 ```
 
 ```{r}
-gtf <- read.table(FILTERED_BED)
 d <- read.table(MAPPING)
-colnames(d) <- c('read', 'chr', 'start', 'match', 'NH', 'HI', 'NM', 'MD', 'AS', 'nM')
+colnames(d) <- c('read', 'chr', 'start', 'match', 'NH', 'HI', 'NM', 'MD', 'AS', 'nM', 'kmer')
 
-for (item in setdiff(colnames(d), c('read', 'chr', 'start', 'match'))){
+for (item in setdiff(colnames(d), c('read', 'chr', 'start', 'match', 'kmer'))){
     d[,item] <- as.numeric(gsub(paste0(item, ':i:|MD:Z:'), '', d[,item]))
 }
 
 ```
-
 
 ```{r}
 d <- cbind(d,
@@ -46,51 +62,123 @@ d <- cbind(d,
                             exon = character())))
 ```
 
-```{r}
-str(d)
-    
-```
-
 First consistency check, are the mapped reads mapping into a region matching the one was simulated? For that we check the chromosome matches, and the mapping site is at less than 1 Mbp from the simulated site.
 
 ```{r}
 d$simulation_locus_match <- FALSE
 d$simulation_locus_match <- d$sim_chr == d$chr & (abs(d$start - d$sim_start) < 1e6)
-table(d$simulation_locus_match)
+stopifnot(all(d$simulation_locus_match))
+print('Check passed')
 ```
 
-Then, annotate with the gene and exon
+Then, annotate with the gene, transcript and exon names/coordinates, to check for even spacing, and feature covering.
+
+```{r}
+gtf <- read.table(FILTERED_BED)
+colnames(gtf) <- c('gtf_chr', 'gtf_start', 'gtf_end', 'gtf_id', 'gtf_feature', 'gtf_strand')
+
+gtf <- cbind(gtf,
+           strcapture(
+               pattern = "ID.*exon:(.*);Parent.*gene_id=(.*);.*transcript_id=(.*);gene_type.*",
+               x = gtf$gtf_id,
+               proto = list(exon = character(),
+                            gene_id = character(), transcript_id = character())))
+```
+
+```{r}
+d <- merge(d, gtf, by.x = 'exon', by.y = 'exon', all.x = TRUE)
+d <- d[,setdiff(colnames(d), c('gtf_id', 'read'))]
+```
+
+<!-- ```{r} -->
+<!-- aggregate(gtf$transcript_id~gtf$gene_id, gtf, function(x) length(unique(x))) -->
+<!-- ``` -->
+
+<!-- How many kmers have we designed per gene? -->
+
+<!-- ```{r} -->
+<!-- ## these are how many kmers per gene are there -->
+<!-- aggregate(d$kmer~d$gene, d, function(x) length(unique(x))) -->
+<!-- ``` -->
+
+<!-- Are there kmers that span more than a single transcript (within the same gene)? -->
+
+<!-- ```{r} -->
+<!-- agg <- aggregate(d$kmer, list(kmer = d$kmer, -->
+<!--                             chr = d$chr, -->
+<!--                             start = d$start, -->
+<!--                             gene_id = d$gene_id), -->
+<!--                  FUN = function(x) length(x)) -->
+<!-- colnames(agg)[5] <- 'tx_covered' -->
+<!-- agg <- agg[order(agg$tx_covered, agg$gene, decreasing = TRUE),] -->
+
+<!-- head(agg) -->
+<!-- ``` -->
+
+# PoC {.tabset .tabset-fade .tabset-pills}
+
+
+In our test dataset, we filtered out 300 bp from the most 'upstream' (strand-specific) gene feature (start coordinate). (@todo: refine/clarify if this should be transcript instead.).
+
+```{r, results = 'asis'}
+
+known <- aggregate(gtf$transcript_id,
+                   list(gene = gtf$gene_id,
+                        transcript = gtf$transcript_id),
+                   FUN = function(x) length(unique(x)))
+
+agg <- aggregate(d$kmer, list(kmer = d$kmer,
+                             chr = d$chr,
+                             start = d$start,
+                             gene_id = d$gene_id),
+                  FUN = function(x) length(x))
+
+colnames(agg)[5] <- 'tx_covered'
+
+maxes <-  aggregate(tx_covered ~ gene_id, data=agg[,c('tx_covered', 'gene_id')], max)
+
+maxes$compound <- paste(maxes$gene_id, maxes$tx_covered)
+agg$compound <- paste(agg$gene_id, agg$tx_covered)
+agg <- agg[agg$compound %in% maxes$compound,]
+
+designed <- agg[!duplicated(agg$compound),]
+rm(agg, maxes)
+
+for (i in 1:nrow(designed)){
+    gene <- designed$gene_id[i]
+
+    cat('## ', gene, '{.tabset .tabset-fade .tabset-pills} \n\n')
+    
+    cat('### Known transcripts \n\n')
+    print(knitr::kable(known[known$gene == gene, ],
+                       row.names = FALSE))
+    cat('\n\n')
+    
+    cat('### Random probe matching the highest number of transcripts \n\n')
+    print(designed$kmer[i])
+    
+    print(knitr::kable(d[d$kmer == designed$kmer[i],],
+                       row.names = FALSE))
+
+    cat('\n\n')
+}
+    
+```
+
+Thoughts: if none of the probes match multiple transcripts, then better ensure one probe per transcript is designed (?).
+
+# Scoring probes
+
+Algorithm to pick N probes per gene that are: overlapping the highest number of transcripts as possible, and evenly spaced
+
+```{r}
+print('todo')
+```
+
+# Session info
 
 ```{r}
 devtools::session_info()
 system('whoami')
 system('uname -a')
-knitr::knit_exit()
-```
-
-```{r}
-
-
-
-for (fn in list.files(WD, pattern = ".*out$", recursive = TRUE)) {
-    gene <- dirname(fn)
-    d[[gene]][[fn]] <- read.table(file.path(WD, fn), col.names = c('kmer', 'count', 'id'))
-    d[[gene]][[fn]] <- cbind(d[[gene]][[fn]],
-                             strcapture(
-                                 pattern = "exon_coord=(.*);.*(exon:.*);Parent.*(gene_id=.*);.*(transcript_id=.*);gene_type.*",
-                                 x = d[[gene]][[fn]]$id,
-                                 proto = list(coord = character(), exon = character(),
-                                              gene = character(), transcript = character())))
-}
-
-```
-
-Check the kmers co-occurrence across transcripts from the same gene (this we'd better do with mapping and overlaps, but...)
-
-```{r}
-for (gene in names(d)) {
-    foo <- as.data.frame(table(as.character(unlist(sapply(d[[gene]], function(x) return(x$kmer))))))
-    print(gene)
-    print(summary(foo$Freq))
-}
 ```
