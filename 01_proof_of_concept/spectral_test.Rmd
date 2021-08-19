@@ -1,3 +1,19 @@
+---
+title: "Spectral proof of concept"
+author: "Robinsonlab @ UZH"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+    code_download: true
+    number_sections: true
+    df_print: kable
+    theme: lumen
+---
+
+
 ```{r}
 WD <- '/home/imallona/giulia'
 
@@ -19,12 +35,12 @@ for (fn in list.files(WD, pattern = ".*out$", recursive = TRUE)) {
 
 ```
 
-Check the kmers co-occurrence across transcripts from the same gene
+Check the kmers co-occurrence across transcripts from the same gene (this we'd better do with mapping and overlaps, but...)
 
 ```{r}
 for (gene in names(d)) {
     foo <- as.data.frame(table(as.character(unlist(sapply(d[[gene]], function(x) return(x$kmer))))))
-
-    print(table(foo))
+    print(gene)
+    print(summary(foo$Freq))
 }
 ```
