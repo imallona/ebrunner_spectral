@@ -16,11 +16,61 @@ output:
 
 ```{r}
 WD <- '/home/imallona/giulia'
-
+KMER_LENGTH <- 25
+NTHREADS <- 10
+MAPPING <- file.path(WD, 'mapping', sprintf('kmers_%s.uniques.gz', KMER_LENGTH))
+FILTERED_BED <- file.path(WD, 'safe_exons.bed')
 ```
 
 ```{r}
-d <- list()
+gtf <- read.table(FILTERED_BED)
+d <- read.table(MAPPING)
+colnames(d) <- c('read', 'chr', 'start', 'match', 'NH', 'HI', 'NM', 'MD', 'AS', 'nM')
+
+for (item in setdiff(colnames(d), c('read', 'chr', 'start', 'match'))){
+    d[,item] <- as.numeric(gsub(paste0(item, ':i:|MD:Z:'), '', d[,item]))
+}
+
+```
+
+
+```{r}
+d <- cbind(d,
+           strcapture(
+               pattern = "exon_coord=(.*):([0-9]+)-([0-9]+)([-+]{1});(.*)_kmer.*",
+               x = d$read,
+               proto = list(sim_chr = character(),
+                            sim_start = numeric(),
+                            sim_end = numeric(),
+                            sim_strand = character(),
+                            exon = character())))
+```
+
+```{r}
+str(d)
+    
+```
+
+First consistency check, are the mapped reads mapping into a region matching the one was simulated? For that we check the chromosome matches, and the mapping site is at less than 1 Mbp from the simulated site.
+
+```{r}
+d$simulation_locus_match <- FALSE
+d$simulation_locus_match <- d$sim_chr == d$chr & (abs(d$start - d$sim_start) < 1e6)
+table(d$simulation_locus_match)
+```
+
+Then, annotate with the gene and exon
+
+```{r}
+devtools::session_info()
+system('whoami')
+system('uname -a')
+knitr::knit_exit()
+```
+
+```{r}
+
+
 
 for (fn in list.files(WD, pattern = ".*out$", recursive = TRUE)) {
     gene <- dirname(fn)

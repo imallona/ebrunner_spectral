@@ -2,7 +2,7 @@
 ##
 ## Erich Brunner's +  Giulia Moro's Spectral data processor (PoC) 
 ## 
-## Software reqs: bedtools, STAR, emboss
+## Software reqs: bedtools, STAR, EMBOSS, pigz
 ##
 ## Izaskun Mallona
 ##
@@ -31,11 +31,11 @@
 # G.~ 300 bp from 5’ end CDS
 
 WD=/home/imallona/giulia                   # working dir, in portmac
-GTF=gencode.vM27.basic.annotation.gff3.gz  # genes gtf
+GTF=gencode.vM27.basic.annotation.gff3  # genes gtf
 FEATURES=features.txt                      # genesymbols/ensg identifers of targets 
 GENOME=GRCm39.primary_assembly.genome.fa   # genome gtf (not transcriptome)
 NTHREADS=10                                # number of cores
-KMER_LENGTH=25                             # todo make use of the variable, currently hardcoded
+KMER_LENGTH=25                             # kmer length
 
 # binaries
 STAR=~/soft/star/STAR-2.7.3a/bin/Linux_x86_64/STAR   
@@ -45,7 +45,7 @@ export PATH=~/soft/bedtools/bedtools-2.29.2/bin/:"$PATH"
 mkdir -p "$WD"; cd "$WD"
 
 ## get GTF
-wget http://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M27/"$GTF"
+wget http://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M27/"$GTF".gz
 
 ## download genome
 wget http://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M27/"$GENOME".gz
@@ -60,7 +60,7 @@ Abca12
 EOF
 
 # grep genes of interest in gtf and transform to bed6
-zcat "$GTF" | grep -v "^#" |\
+zcat "$GTF".gz | grep -v "^#" |\
     grep -f "$FEATURES" | grep -e "exon\|gene\|transcript" | \
     awk '{OFS=FS="\t"; print $1,$4,$5,$9,$3,$7}'  > selected.bed
 
@@ -68,7 +68,8 @@ wc -l selected.bed
 
 # get the 5' 300 bp ranges per gene (@todo check, is it per gene or per transcript?)
 # for that, first get the chromosome sizes
-gunzip "$GENOME".gz
+pigz --decompress -p "$NTHREADS" "$GENOME".gz
+
 samtools faidx "$GENOME"
 cut -f1,2 "$GENOME".fai > mm39.chromsizes
 
@@ -117,7 +118,7 @@ do
     id_short=$(awk -v exon="$exon" '{print "exon_coord="$1":"$2"-"$3$6";"exon}' "$i".bed)
     
     bedtools getfasta -name -fi "$GENOME" -bed "$i".bed > "$i".fa
-    wordcount --sequence "$i".fa -wordsize=25 -outfile "$i".wordcount &> /dev/null
+    wordcount --sequence "$i".fa -wordsize="$KMER_LENGTH" -outfile "$i".wordcount &> /dev/null
 
     # get only kmers appearing once within that exon
     grep -P "\t1$" "$i".wordcount | \
@@ -142,35 +143,63 @@ done < safe_exons.bed
 find ./tmp -name "gene*fa.gz" | xargs zcat | gzip -c > kmers_"$KMER_LENGTH".fa.gz
 rm -rf ./tmp
 
-gzip "$GENOME"
-
 # map (salmon/star/whatever)
 
 # first attempt with a gDNA + GTF sort of approach (STAR)
 #  maybe to be replaced with a pure transcriptome sort of mapping, afterwards
 # note the index kmer length fitting to the kmer length (sjdbOverhang kmer length -1)
 
-mkdir -p indices/$(basename "$GTF")_"$KMER_LENGTH"
+mkdir -p indices/$(basename "$GTF" .gff3)_kmer_"$KMER_LENGTH"
+
+pigz --decompress -p "$NTHREADS" "$GTF".gz
 
 "$STAR" --runThreadN "$NTHREADS" \
         --runMode genomeGenerate \
-        --genomeDir indices/$(basename "$GTF")_"$KMER_LENGTH" \
+        --genomeDir indices/$(basename "$GTF" .gff3)_kmer_"$KMER_LENGTH" \
         --genomeFastaFiles "$GENOME" \
         --sjdbGTFfile "$GTF" \
         --sjdbOverhang $(($KMER_LENGTH - 1))
+
+pigz -p "$NTHREADS" "$GENOME"
+pigz -p "$NTHREADS" "$GTF"
 
 # map
 
 mkdir -p mapping
 
 # with nsorted output: multiple alignments of a read are adjacent
-"$STAR" --genomeDir indices/$(basename "$GTF")_"$KMER_LENGTH" \
+# outSAMmultNmax 1: report only one alignment for multimappers
+"$STAR" --genomeDir indices/$(basename "$GTF" .gff3)_kmer_"$KMER_LENGTH" \
         --runThreadN "$NTHREADS" \
         --readFilesIn kmers_"$KMER_LENGTH".fa.gz \
         --outFileNamePrefix mapping/kmers_"$KMER_LENGTH" \
         --outSAMtype BAM Unsorted \
         --outSAMunmapped Within \
-        --outSAMattributes Standard
+        --outSAMmultNmax 1 \
+        --outSAMattributes NH HI NM MD AS nM \
+        --readFilesCommand zcat
+
+# awk parsing the bam file: items to be reported:
+#   read_name
+#   map_chr
+#   map_star
+#   map_end
+#   map_strand
+#   NH Number of reported alignments that contain the query in the current record <---
+#   HI Query hit index
+#   NM edit distance to the reference
+#   MD string encoding mismatched and deleted reference bases
+#   AS id the local alignment score (paired for paired-end reads).
+#   nM number of mismatches per (paired) alignment
+
+# we grep NH=1 to get unique mappers (as defined by STAR)
+# exon_coord=chr5:142889256-142889696-;ENSMUST00000167721.8:5_kmer_45
+
+samtools view mapping/kmers_"$KMER_LENGTH"Aligned.out.bam  | \
+    grep -w 'NH:i:1' | \
+    awk '{OFS=FS="\t"; print $1,$3,$4,$6,$12,$13,$14,$15,$16,$17}' | \
+    pigz -p $NTHREADS --stdout > mapping/kmers_"$KMER_LENGTH".uniques.gz
+
 
 # postprocess in R
 
@@ -178,3 +207,23 @@ mkdir -p mapping
 ##  from which exon did they come from
 ## anyway I could get this data while mapping, during the 'uniqueness' check step
 ## not sure this would be enough to then 'evenly space' them
+
+# algorithm to evenly space non-overlapping probes within a gene while optimizing that probes
+#  overlap to as many transcripts as possible
+
+:<<EOF
+(unfinished))
+filter in unique mapper probes only
+
+for each gene
+   get all probes from that gene
+   loc := rank from upstream to downstream (strand-specific) according to their mapping coordinates
+   multi := (desc sort) number of occurrences (the higher the number, the higher the # exons
+                 they were generated from, and hence the higher the # transcripts)
+   loc_top:= pick the loc rank of the first element of multi
+     
+  select the top tier 
+
+end for
+
+EOF
