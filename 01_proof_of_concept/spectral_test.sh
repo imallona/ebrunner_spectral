@@ -1,4 +1,14 @@
 #!/bin/bash
+##
+## Erich Brunner's +  Giulia Moro's Spectral data processor (PoC) 
+## 
+## Software reqs: bedtools, STAR, emboss
+##
+## Izaskun Mallona
+##
+## License GPLv3
+##
+## Started 18 Aug 2021
 
 ## Criteria 
 # 1.Specific for gene (in this case transcription factors)
@@ -24,7 +34,11 @@ WD=/home/imallona/giulia                   # working dir, in portmac
 GTF=gencode.vM27.basic.annotation.gff3.gz  # genes gtf
 FEATURES=features.txt                      # genesymbols/ensg identifers of targets 
 GENOME=GRCm39.primary_assembly.genome.fa   # genome gtf (not transcriptome)
+NTHREADS=10                                # number of cores
+KMER_LENGTH=25                             # todo make use of the variable, currently hardcoded
 
+# binaries
+STAR=~/soft/star/STAR-2.7.3a/bin/Linux_x86_64/STAR   
 # in case we don't have bedtools installed
 export PATH=~/soft/bedtools/bedtools-2.29.2/bin/:"$PATH"
 
@@ -100,25 +114,63 @@ do
     exon=$([[ $identifier =~ .*exon:(.*)\;Parent.* ]] && echo "${BASH_REMATCH[1]}")
     gene=$([[ $identifier =~ .*gene_id=(.*)\;transcript_id.* ]] && echo "${BASH_REMATCH[1]}")
     transcript=$([[ $identifier =~ .*transcript_id=(.*)\;gene_type.* ]] && echo "${BASH_REMATCH[1]}")
-
+    id_short=$(awk -v exon="$exon" '{print "exon_coord="$1":"$2"-"$3$6";"exon}' "$i".bed)
+    
     bedtools getfasta -name -fi "$GENOME" -bed "$i".bed > "$i".fa
-    wordcount --sequence "$i".fa -wordsize=25 -outfile "$i".wordcount
+    wordcount --sequence "$i".fa -wordsize=25 -outfile "$i".wordcount &> /dev/null
 
     # get only kmers appearing once within that exon
     grep -P "\t1$" "$i".wordcount | \
-        awk -v id="$identifier" '{OFS=FS="\t"; print $0,id}' > \
+        awk -v id="$id_short" '{OFS=FS="\t"; print $0,id}' > \
             gene_"$gene"_trans_"$transcript"_exon_"$exon".out
 
-    mkdir -p "$gene"
-    mv gene_"$gene"_trans_"$transcript"_exon_"$exon".out "$gene"
-    rm "$i".bed "$i".fa "$i".wordcount
+    awk -v id="$id_short" '{OFS=FS="\t";print ">"id"_kmer_"NR"\n"$1}' \
+        gene_"$gene"_trans_"$transcript"_exon_"$exon".out > \
+        gene_"$gene"_trans_"$transcript"_exon_"$exon".fa
+
+    mkdir -p tmp/"$gene"
+    cat gene_"$gene"_trans_"$transcript"_exon_"$exon".fa | gzip -c > tmp/"$gene"/gene_"$gene".fa.gz
+    
+    rm "$i".bed "$i".fa "$i".wordcount gene_"$gene"_trans_"$transcript"_exon_"$exon".out \
+       gene_"$gene"_trans_"$transcript"_exon_"$exon".fa
 
     i=$(($i + 1))
 done < safe_exons.bed
 
+# merge all genes' kmers, for mapping
+
+find ./tmp -name "gene*fa.gz" | xargs zcat | gzip -c > kmers_"$KMER_LENGTH".fa.gz
+rm -rf ./tmp
+
 gzip "$GENOME"
 
 # map (salmon/star/whatever)
+
+# first attempt with a gDNA + GTF sort of approach (STAR)
+#  maybe to be replaced with a pure transcriptome sort of mapping, afterwards
+# note the index kmer length fitting to the kmer length (sjdbOverhang kmer length -1)
+
+mkdir -p indices/$(basename "$GTF")_"$KMER_LENGTH"
+
+"$STAR" --runThreadN "$NTHREADS" \
+        --runMode genomeGenerate \
+        --genomeDir indices/$(basename "$GTF")_"$KMER_LENGTH" \
+        --genomeFastaFiles "$GENOME" \
+        --sjdbGTFfile "$GTF" \
+        --sjdbOverhang $(($KMER_LENGTH - 1))
+
+# map
+
+mkdir -p mapping
+
+# with nsorted output: multiple alignments of a read are adjacent
+"$STAR" --genomeDir indices/$(basename "$GTF")_"$KMER_LENGTH" \
+        --runThreadN "$NTHREADS" \
+        --readFilesIn kmers_"$KMER_LENGTH".fa.gz \
+        --outFileNamePrefix mapping/kmers_"$KMER_LENGTH" \
+        --outSAMtype BAM Unsorted \
+        --outSAMunmapped Within \
+        --outSAMattributes Standard
 
 # postprocess in R
 
