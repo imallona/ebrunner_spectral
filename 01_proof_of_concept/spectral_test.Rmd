@@ -16,6 +16,10 @@ output:
 ```{r}
 suppressPackageStartupMessages({
     library(knitr)
+    library('TmCalculator')
+    ## library('entropy')
+    ## library('rDNAse')
+    library('msu')
 })
 ```
 
@@ -39,6 +43,23 @@ MAPPING <- file.path(WD, 'mapping', sprintf('kmers_%s.uniques.gz', KMER_LENGTH))
 FILTERED_BED <- file.path(WD, 'safe_exons.bed')
 
 ```
+
+
+TODO list
+
+```
+- Make sure the kmers don't overlap multiple genes (multifeature)
+- Design a visualization approach
+- Keep track of how many probes are filtered out at each step; document this within the report
+```
+
+Shell design
+
+<img src="figures/giulia1_bw.jpg" alt="shell" width="350"/>
+
+Rmarkdown design
+
+<img src="figures/giulia2_bw.jpg" alt="rscript" width="350"/>
 
 ```{r}
 d <- read.table(MAPPING)
@@ -114,6 +135,57 @@ d <- d[,setdiff(colnames(d), c('gtf_id', 'read'))]
 
 <!-- head(agg) -->
 <!-- ``` -->
+
+# Tm, GC annotation
+
+```
+TODO: Decide which Tm estimation method to use
+```
+
+```{r}
+
+d$gc <- sapply(d$kmer, function(x) TmCalculator::GC(x))
+
+d$Tm_NN <- sapply(d$kmer,
+                  function(x) TmCalculator::Tm_NN(x,
+                                                  ambiguous = FALSE, comSeq = NULL,
+                                                  shift = 0,
+                                                  nn_table = "DNA_NN4",
+                                                  tmm_table = "DNA_TMM1",
+                                                  imm_table = "DNA_IMM1",
+                                                  de_table = "DNA_DE1",
+                                                  dnac1 = 25,
+                                                  dnac2 = 25,
+                                                  selfcomp = FALSE,
+                                                  Na = 50, K = 0, Tris = 0, Mg = 0,
+                                                  dNTPs = 0, saltcorr = 5))
+
+summary(d$tmNN)
+```
+
+Homopolymer annotation: flag any probe with more than 5 consecutive repeated nts.
+
+```{r}
+regex <- '(A){5,}|(T){5,}|(C){5,}|(G){5,}'
+d$homopolymer <- grepl(regex, d$kmer, ignore.case = TRUE)
+```
+
+Sequence complexity (Shannon's entropy on 2-mers)
+
+```{r}
+## length of the substrinb
+k <- 2
+
+d$shannon_entropy <- sapply(d$kmer,
+                            function(x) msu::shannon_entropy(factor(substring(x, 1:(nchar(x)-k+1), k:nchar(x)))))
+
+```
+
+Self complementarity (?)
+
+```{r}
+print('todo')
+```
 
 # PoC {.tabset .tabset-fade .tabset-pills}
 
