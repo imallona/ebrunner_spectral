@@ -20,6 +20,8 @@ suppressPackageStartupMessages({
     ## library('entropy')
     ## library('rDNAse')
     library('msu')
+    library('data.table')
+    library('Matrix')
 })
 ```
 
@@ -41,9 +43,9 @@ KMER_LENGTH <- 25
 NTHREADS <- 10
 MAPPING <- file.path(WD, 'mapping', sprintf('kmers_%s.uniques.gz', KMER_LENGTH))
 FILTERED_BED <- file.path(WD, 'safe_exons.bed')
+DOWNSAMPLE <- TRUE
 
 ```
-
 
 TODO list
 
@@ -62,7 +64,7 @@ Rmarkdown design
 <img src="figures/giulia2_bw.jpg" alt="rscript" width="350"/>
 
 ```{r}
-d <- read.table(MAPPING)
+d <- as.data.frame(data.table::fread(MAPPING, nrows = ifelse(DOWNSAMPLE, yes = 1e5, no = Inf)))
 colnames(d) <- c('read', 'chr', 'start', 'match', 'NH', 'HI', 'NM', 'MD', 'AS', 'nM', 'kmer')
 
 for (item in setdiff(colnames(d), c('read', 'chr', 'start', 'match', 'kmer'))){
@@ -90,6 +92,7 @@ d$simulation_locus_match <- FALSE
 d$simulation_locus_match <- d$sim_chr == d$chr & (abs(d$start - d$sim_start) < 1e6)
 stopifnot(all(d$simulation_locus_match))
 print('Check passed')
+
 ```
 
 Then, annotate with the gene, transcript and exon names/coordinates, to check for even spacing, and feature covering.
@@ -142,6 +145,8 @@ d <- d[,setdiff(colnames(d), c('gtf_id', 'read'))]
 TODO: Decide which Tm estimation method to use
 ```
 
+TODO move this further downstream, so the computations are smaller (once per kmer)
+
 ```{r}
 
 d$gc <- sapply(d$kmer, function(x) TmCalculator::GC(x))
@@ -160,17 +165,24 @@ d$Tm_NN <- sapply(d$kmer,
                                                   Na = 50, K = 0, Tris = 0, Mg = 0,
                                                   dNTPs = 0, saltcorr = 5))
 
-summary(d$tmNN)
+summary(d$Tm_NN)
 ```
 
-Homopolymer annotation: flag any probe with more than 5 consecutive repeated nts.
+Adding the Wallace formula too, `Tm <- 4 * nGC + 2 * nAT`
 
 ```{r}
-regex <- '(A){5,}|(T){5,}|(C){5,}|(G){5,}'
+d$Tm_Wallace <- sapply(d$kmer,
+                  function(x) TmCalculator::Tm_Wallace(x))
+```
+
+Homopolymer annotation: flag any probe with more than 3 consecutive repeated nts.
+
+```{r}
+regex <- '(A){3,}|(T){3,}|(C){3,}|(G){3,}'
 d$homopolymer <- grepl(regex, d$kmer, ignore.case = TRUE)
 ```
 
-Sequence complexity (Shannon's entropy on 2-mers)
+Sequence complexity (Shannon's entropy on sliding 2-mers)
 
 ```{r}
 ## length of the substrinb
@@ -178,6 +190,7 @@ k <- 2
 
 d$shannon_entropy <- sapply(d$kmer,
                             function(x) msu::shannon_entropy(factor(substring(x, 1:(nchar(x)-k+1), k:nchar(x)))))
+
 
 ```
 
@@ -238,6 +251,253 @@ for (i in 1:nrow(designed)){
 ```
 
 Thoughts: if none of the probes match multiple transcripts, then better ensure one probe per transcript is designed (?).
+
+# Sandbox
+
+Rank probes, and then look for overlaps
+
+
+Old fashioned loop on a sorted-by-coord single scan; to be parallelized by gene
+
+```{r, eval = FALSE}
+
+## this chunk does not make sense, it will generate an incredible long categorical variable
+##  containing the hundreds of probes overlapping each other
+##
+
+## todo test properly, for 0/1 starts etc
+overlaps <- function(a_chr, a_start, a_end,
+                     b_chr, b_start, b_end) {
+    res <- FALSE
+    if (a_chr != b_chr){
+        res <- FALSE
+    }
+    else {
+        if ((a_start >= b_start & b_end < a_end) |
+            (b_start >= a_start & a_end < b_end)) {
+            res <- TRUE
+        }
+    }
+
+    return(res)
+}
+ 
+## we assume they share the chromosome, so we take into account just the start
+d <- d[order(d$gene_id, d$start),]
+parsed <- list()
+
+for (gene_id in unique(d$gene_id)) {
+    curr <- d[d$gene_id == gene_id,]
+    parsed[[gene_id]] <- list()
+    ## overlaps <- FALSE
+    for (i in 1:length(unique(curr$kmer))) {
+        kmer <- curr$kmer[i]
+        num_transcripts <- length(curr[curr$kmer == kmer, 'transcript_id'])
+        transcripts <- paste(curr[curr$kmer == kmer, 'transcript_id'], collapse = ';')
+        exons <- paste(curr[curr$kmer == kmer, 'exon'], collapse = ';')
+        cigars <- paste(curr[curr$kmer == kmer, 'match'], collapse = ';')
+        strand <- curr[curr$kmer == kmer, 'gtf_strand'][1]
+        chr <- curr[curr$kmer == kmer, 'chr'][1]
+        start <- curr[curr$kmer == kmer, 'start'][1]       
+        ## todo get the 1-offset right
+        end <- ifelse(strand == '+',
+                      yes = start + KMER_LENGTH,
+                      no = start - KMER_LENGTH)
+
+        ## overlaps <- abs(curr$start - parsed[[gene_id]][[i]]) <---- how to do this efficiently
+        parsed[[gene_id]][[i]] <- setNames(c(kmer, num_transcripts, transcripts, exons,
+                                             cigars, chr, start, end, NA, NA),
+                                           c('kmer', 'num_transcripts', 'transcripts', 'exons',
+                                             'cigars', 'chr', 'start', 'end',
+                                             'overlaps_with', 'does_not_overlap_with'))   
+    }
+
+
+    ## ## TODO don't do the whole combinations, overlaps(a,b) is equivalent to overlaps(b,a)
+    ## coords <- setNames(lapply(parsed[[gene_id]],
+    ##                           function(x) return(c(x['chr'], x['start'], x['end']))),
+    ##                    sapply(parsed[[gene_id]], function(x) return(x['kmer'])))
+    
+    ## nms <- combn(names(coords) , 2 , FUN = paste0 , collapse = "" , simplify = FALSE )
+
+    ## ## Make the combinations of list elements
+    ## ll <- combn(coords, 2 , simplify = FALSE )
+
+    ## out <- setNames(lapply( ll , function(x) overlaps(a_chr = x[[1]]['chr'],
+    ##                                                   b_chr = x[[2]]['chr'],     
+    ##                                                   a_start = x[[1]]['start'],
+    ##                                                   b_start = x[[2]]['start'],
+    ##                                                   a_end = x[[1]]['end'],
+    ##                                                   b_end = x[[2]]['end'])),   
+    
+    ## nms)
+    
+    ## rather, manual loop to control that better
+    ## TODO to be optimized for speed up
+
+    ## overlaps matrix, symmetric
+    om <- matrix(data = TRUE, nrow = length(kmers), ncol = length(kmers))
+    
+    kmers <- parsed[[gene_id]]
+    for (i in 1: length( kmers)) {
+        overlaps_list <- list()
+        kmer1 <- parsed[[gene_id]][[i]]
+
+        j <- i+1
+        while (j <= length(kmers)) {
+            kmer2 <- parsed[[gene_id]][[j]]
+            
+            om[i,j] <- c(overlaps(a_chr = kmer1['chr'],
+                                  b_chr = kmer2['chr'],     
+                                  a_start = kmer1['start'],
+                                  b_start = kmer2['start'],
+                                  a_end = kmer1['end'],
+                                  b_end = kmer2['end']))
+            j <- j + 1
+            
+        }
+    }
+    om <- Matrix::forceSymmetric(om)
+    colnames(om) <- as.character(sapply(parsed[[gene_id]], function(x) return(x['kmer'])))
+    rownames(om) <- colnames(om)
+
+
+    for (k in 1:nrow(om)) {
+        kmer <- rownames(om)[1]
+        
+        parsed[[gene_id]][k]['overlaps_with'] <- paste(colnames(om)[om[i,]], collapse = ';')
+        parsed[[gene_id]][k]['does_not_overlap_with'] <- paste(colnames(om)[!om[i,]],
+                                                               collapse = ';')
+        
+    }
+}
+```
+
+```
+Algorithm to pick probes: (not implemented, not definitive)
+- pick the probe with the highest number of covered transcripts, highest entropy, and lowest amount of homopolymers: store the location
+- try to pick a non overlapping upstream probe with the highest number of disjoint transcripts, the highest entropy, and lowest amount of homopolymers
+- try to pick a nonoverlapping downstream probe with the highest number of disjoint transcripts (as compared to the two above), the highest entropy, and lowest amount of homopolymers
+- report non covered transcripts (?)
+```
+
+
+```{r, eval = FALSE}
+
+## this chunk does not make sense, it will generate an incredible long categorical variable
+##  containing the hundreds of probes overlapping each other
+##
+
+## todo test properly, for 0/1 starts etc
+overlaps <- function(a_chr, a_start, a_end,
+                     b_chr, b_start, b_end) {
+    res <- FALSE
+    if (a_chr != b_chr){
+        res <- FALSE
+    }
+    else {
+        if ((a_start >= b_start & b_end < a_end) |
+            (b_start >= a_start & a_end < b_end)) {
+            res <- TRUE
+        }
+    }
+
+    return(res)
+}
+ 
+## we assume they share the chromosome, so we take into account just the start
+d <- d[order(d$gene_id, d$start),]
+parsed <- list()
+
+for (gene_id in unique(d$gene_id)) {
+    curr <- d[d$gene_id == gene_id,]
+    parsed[[gene_id]] <- list()
+    ## overlaps <- FALSE
+    for (i in 1:length(unique(curr$kmer))) {
+        kmer <- curr$kmer[i]
+        num_transcripts <- length(curr[curr$kmer == kmer, 'transcript_id'])
+        transcripts <- paste(curr[curr$kmer == kmer, 'transcript_id'], collapse = ';')
+        exons <- paste(curr[curr$kmer == kmer, 'exon'], collapse = ';')
+        cigars <- paste(curr[curr$kmer == kmer, 'match'], collapse = ';')
+        strand <- curr[curr$kmer == kmer, 'gtf_strand'][1]
+        chr <- curr[curr$kmer == kmer, 'chr'][1]
+        start <- curr[curr$kmer == kmer, 'start'][1]       
+        ## todo get the 1-offset right
+        end <- ifelse(strand == '+',
+                      yes = start + KMER_LENGTH,
+                      no = start - KMER_LENGTH)
+
+        ## overlaps <- abs(curr$start - parsed[[gene_id]][[i]]) <---- how to do this efficiently
+        parsed[[gene_id]][[i]] <- setNames(c(kmer, num_transcripts, transcripts, exons,
+                                             cigars, chr, start, end, NA, NA),
+                                           c('kmer', 'num_transcripts', 'transcripts', 'exons',
+                                             'cigars', 'chr', 'start', 'end',
+                                             'overlaps_with', 'does_not_overlap_with'))   
+    }
+
+
+    ## ## TODO don't do the whole combinations, overlaps(a,b) is equivalent to overlaps(b,a)
+    ## coords <- setNames(lapply(parsed[[gene_id]],
+    ##                           function(x) return(c(x['chr'], x['start'], x['end']))),
+    ##                    sapply(parsed[[gene_id]], function(x) return(x['kmer'])))
+    
+    ## nms <- combn(names(coords) , 2 , FUN = paste0 , collapse = "" , simplify = FALSE )
+
+    ## ## Make the combinations of list elements
+    ## ll <- combn(coords, 2 , simplify = FALSE )
+
+    ## out <- setNames(lapply( ll , function(x) overlaps(a_chr = x[[1]]['chr'],
+    ##                                                   b_chr = x[[2]]['chr'],     
+    ##                                                   a_start = x[[1]]['start'],
+    ##                                                   b_start = x[[2]]['start'],
+    ##                                                   a_end = x[[1]]['end'],
+    ##                                                   b_end = x[[2]]['end'])),   
+    
+    ## nms)
+    
+    ## rather, manual loop to control that better
+    ## TODO to be optimized for speed up
+
+    ## overlaps matrix, symmetric
+    om <- matrix(data = TRUE, nrow = length(kmers), ncol = length(kmers))
+    
+    kmers <- parsed[[gene_id]]
+    for (i in 1: length( kmers)) {
+        overlaps_list <- list()
+        kmer1 <- parsed[[gene_id]][[i]]
+
+        j <- i+1
+        while (j <= length(kmers)) {
+            kmer2 <- parsed[[gene_id]][[j]]
+            
+            om[i,j] <- c(overlaps(a_chr = kmer1['chr'],
+                                  b_chr = kmer2['chr'],     
+                                  a_start = kmer1['start'],
+                                  b_start = kmer2['start'],
+                                  a_end = kmer1['end'],
+                                  b_end = kmer2['end']))
+            j <- j + 1
+            
+        }
+    }
+    om <- Matrix::forceSymmetric(om)
+    colnames(om) <- as.character(sapply(parsed[[gene_id]], function(x) return(x['kmer'])))
+    rownames(om) <- colnames(om)
+
+
+    for (k in 1:nrow(om)) {
+        kmer <- rownames(om)[1]
+        
+        parsed[[gene_id]][k]['overlaps_with'] <- paste(colnames(om)[om[i,]], collapse = ';')
+        parsed[[gene_id]][k]['does_not_overlap_with'] <- paste(colnames(om)[!om[i,]],
+                                                               collapse = ';')
+        
+    }
+}
+```
+
+
+
 
 # Scoring probes
 

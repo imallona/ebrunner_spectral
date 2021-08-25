@@ -31,10 +31,11 @@
 # G.~ 300 bp from 5’ end CDS
 
 WD=/home/imallona/giulia                   # working dir, in portmac
-GTF=gencode.vM27.basic.annotation.gff3  # genes gtf
-FEATURES=features.txt                      # genesymbols/ensg identifers of targets 
+GTF=gencode.vM27.basic.annotation.gff3     # genes gtf
+## genesymbols/ensg identifers of targets
+FEATURES=/home/imallona/src/ebrunner/01_proof_of_concept/data/tf_mouse_gmoro.txt 
 GENOME=GRCm39.primary_assembly.genome.fa   # genome gtf (not transcriptome)
-NTHREADS=10                                # number of cores
+NTHREADS=20                                # number of cores
 KMER_LENGTH=25                             # kmer length
 
 # binaries
@@ -45,48 +46,68 @@ export PATH=~/soft/bedtools/bedtools-2.29.2/bin/:"$PATH"
 mkdir -p "$WD"; cd "$WD"
 
 ## get GTF
-wget http://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M27/"$GTF".gz
+if [ ! -f "$GTF".gz ]; then
+    echo "Download GTF"
+    wget http://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M27/"$GTF".gz
+fi
 
 ## download genome
-wget http://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M27/"$GENOME".gz
+if [ ! -f "$GENOME".gz ]; then
+    echo "Download genome"
+    wget http://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M27/"$GENOME".gz
+fi
 
 ## get genes of interest, these are absolutely random
-cat << EOF > "$FEATURES"
-Actb
-Gm7341
-Lactb2
-Cyp20a1
-Abca12
-Adgrg1
-Ndrg2
-Dmkn
-EOF
+# cat << EOF > "$FEATURES"
+# Actb
+# Gm7341
+# Lactb2
+# Cyp20a1
+# Abca12
+# Adgrg1
+# Ndrg2
+# Dmkn
+# EOF
+
+
+# Check how many genes of interest are there
+echo "Designing probes for: `wc -l $FEATURES` genes"
+
 
 # grep genes of interest in gtf and transform to bed6
-zcat "$GTF".gz | grep -v "^#" |\
-    grep -w -f "$FEATURES" | grep -e "exon\|gene\|transcript" | \
+# TODO brainstorm if exons are indeed to be fetched, and not CDS
+pigz --decompress -p "$NTHREADS" --stdout --keep "$GTF".gz | \
+    LC_ALL=C fgrep -v "^#" | \
+    LC_ALL=C grep -w -f "$FEATURES" | \
+    LC_ALL=C grep -e "exon\|gene\|transcript" | \
     awk '{OFS=FS="\t"; print $1,$4,$5,$9,$3,$7}'  > selected.bed
 
-wc -l selected.bed
+echo "Number of features: `wc -l selected.bed`"
 
-# get the 5' 300 bp ranges per gene (@todo check, is it per gene or per transcript?)
+# get the 5' 300 bp ranges per transcript (these will be removed from the analysis)
 # for that, first get the chromosome sizes
 pigz --decompress -p "$NTHREADS" "$GENOME".gz
 
-samtools faidx "$GENOME"
-cut -f1,2 "$GENOME".fai > mm39.chromsizes
+if [ ! -f mm39.chromsizes ]; then
+    samtools faidx "$GENOME"
+    cut -f1,2 "$GENOME".fai > mm39.chromsizes
+fi
 
-## then, get these 300 bp after each gene start (strand aware of course)
-grep -w gene selected.bed | \
-    bedtools flank -i - -g mm39.chromsizes \
-             -l 0 -r 300 -s > genes_300bp_up.bed
+## then, get these 300 bp after each transcript start (strand aware of course)
+# LC_ALL=C grep -w gene selected.bed | \
+#     bedtools flank -i - -g mm39.chromsizes \
+#              -l 0 -r 300 -s > genes_300bp_up.bed
+awk '$5== "transcript" {print $0}' selected.bed | \
+        bedtools flank -i - -g mm39.chromsizes \
+                 -l 0 -r 300 -s > transcripts_300bp_up.bed
 
-wc -l genes_300bp_up.bed
+echo "Number of 300 bp regions to avoid: `wc -l transcripts_300bp_up.bed`"
 
 # remove these 5' regions from the regions to design the probes from
 bedtools intersect -v -a  selected.bed \
-         -b genes_300bp_up.bed | grep -w exon > safe_exons.bed
+         -b transcripts_300bp_up.bed | grep -w exon > safe_exons.bed
 
+echo "Number of features (5' 300 bp excluded): `wc -l safe_exons.bed`"
 # loop to extract unique (per exon) 25-mers to be stored with metadata, including:
 #  -gene they belong to
 #  -transcript they belong to
@@ -152,19 +173,23 @@ rm -rf ./tmp
 #  maybe to be replaced with a pure transcriptome sort of mapping, afterwards
 # note the index kmer length fitting to the kmer length (sjdbOverhang kmer length -1)
 
-mkdir -p indices/$(basename "$GTF" .gff3)_kmer_"$KMER_LENGTH"
+if [ ! -f  indices/$(basename "$GTF" .gff3)_kmer_"$KMER_LENGTH"/SA ]; then
+    echo 'indexing'
 
-pigz --decompress -p "$NTHREADS" "$GTF".gz
+    mkdir -p indices/$(basename "$GTF" .gff3)_kmer_"$KMER_LENGTH"
 
-"$STAR" --runThreadN "$NTHREADS" \
-        --runMode genomeGenerate \
-        --genomeDir indices/$(basename "$GTF" .gff3)_kmer_"$KMER_LENGTH" \
-        --genomeFastaFiles "$GENOME" \
-        --sjdbGTFfile "$GTF" \
-        --sjdbOverhang $(($KMER_LENGTH - 1))
+    pigz --decompress -p "$NTHREADS" "$GTF".gz
 
-pigz -p "$NTHREADS" "$GENOME"
-pigz -p "$NTHREADS" "$GTF"
+    "$STAR" --runThreadN "$NTHREADS" \
+            --runMode genomeGenerate \
+            --genomeDir indices/$(basename "$GTF" .gff3)_kmer_"$KMER_LENGTH" \
+            --genomeFastaFiles "$GENOME" \
+            --sjdbGTFfile "$GTF" \
+            --sjdbOverhang $(($KMER_LENGTH - 1))
+
+    pigz -p "$NTHREADS" "$GENOME"
+    pigz -p "$NTHREADS" "$GTF"
+fi
 
 # map
 
