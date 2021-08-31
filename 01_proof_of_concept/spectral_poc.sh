@@ -33,10 +33,11 @@
 WD=/home/imallona/giulia                   # working dir, in portmac
 GTF=gencode.vM27.basic.annotation.gff3     # genes gtf
 ## genesymbols/ensg identifers of targets
-FEATURES=/home/imallona/src/ebrunner/01_proof_of_concept/data/tf_mouse_gmoro.txt 
+FEATURES=/home/imallona/src/ebrunner_spectral/01_proof_of_concept/data/tf_mouse_gmoro.txt 
 GENOME=GRCm39.primary_assembly.genome.fa   # genome gtf (not transcriptome)
 NTHREADS=20                                # number of cores
 KMER_LENGTH=25                             # kmer length
+POSTPROC_RSCRIPT=/home/imallona/src/ebrunner_spectral/01_proof_of_concept/spectral_poc.Rmd
 
 # binaries
 STAR=~/soft/star/STAR-2.7.3a/bin/Linux_x86_64/STAR   
@@ -229,29 +230,15 @@ samtools view mapping/kmers_"$KMER_LENGTH"Aligned.out.bam  | \
     pigz -p $NTHREADS --stdout > mapping/kmers_"$KMER_LENGTH".uniques.gz
 
 
-# postprocess in R
+# postprocess in R, by chromosome (to be parallelized later/ snmk or xargs)
 
-## but with this strategy I don't know where these kmers were extracted from, just
-##  from which exon did they come from
-## anyway I could get this data while mapping, during the 'uniqueness' check step
-## not sure this would be enough to then 'evenly space' them
 
-# algorithm to evenly space non-overlapping probes within a gene while optimizing that probes
-#  overlap to as many transcripts as possible
 
-:<<EOF
-(unfinished))
-filter in unique mapper probes only
+for chrom in $(seq 1 19) X Y
+do
+    chrom="chr"$chrom
+    echo $chrom
 
-for each gene
-   get all probes from that gene
-   loc := rank from upstream to downstream (strand-specific) according to their mapping coordinates
-   multi := (desc sort) number of occurrences (the higher the number, the higher the # exons
-                 they were generated from, and hence the higher the # transcripts)
-   loc_top:= pick the loc rank of the first element of multi
-     
-  select the top tier 
-
-end for
-
-EOF
+    # run=$(printf 'rmarkdown::render("%s")' "$result" "$size" "$name" "$visits" "$inbound" "$outbound")
+    # R -e "rmarkdown::render('"P
+done

@@ -11,6 +11,8 @@ output:
     number_sections: true
     df_print: kable
     theme: lumen
+params:
+    chromosome: ""
 ---
 
 ```{r}
@@ -22,6 +24,8 @@ suppressPackageStartupMessages({
     library('msu')             # for Shannon's entropy
     library('data.table')
     library('Matrix')
+    ## library('foreach')
+    ## library('doParallel')
 })
 ```
 
@@ -45,8 +49,12 @@ NUM_PROBES <- 3   ## probes per gene
 MAPPING <- file.path(WD, 'mapping', sprintf('kmers_%s.uniques.gz', KMER_LENGTH))
 FILTERED_BED <- file.path(WD, 'safe_exons.bed')
 FEATURES <- file.path('/home/imallona', 'src',
-                      'ebrunner', '01_proof_of_concept', 'data', 'tf_mouse_gmoro.txt')
-DOWNSAMPLE <- FALSE
+                      'ebrunner_spectral', '01_proof_of_concept', 'data', 'tf_mouse_gmoro.txt')
+DOWNSAMPLE <- TRUE
+
+```
+
+```{r}
 
 ```
 
@@ -102,6 +110,7 @@ valid_melting <- function(x) {
   
 ```
 
+
 TODO list
 
 ```
@@ -120,7 +129,14 @@ Rmarkdown design
 <img src="figures/giulia2_bw.jpg" alt="rscript" width="350"/>
 
 ```{r}
-d <- as.data.frame(data.table::fread(MAPPING, nrows = ifelse(DOWNSAMPLE, yes = 5e5, no = Inf)))
+
+if (params$chromosome == 'all') {
+    d <- as.data.frame(data.table::fread(MAPPING, nrows = ifelse(DOWNSAMPLE, yes = 5e5, no = Inf)))
+}
+else {
+    grepsys <- sprintf('LC_ALL=C fgrep -w %s %s', params$chromosome, MAPPING)
+    d <- as.data.frame(data.table::fread(grepsys, nrows = ifelse(DOWNSAMPLE, yes = 5e5, no = Inf)))
+}
 colnames(d) <- c('read', 'chr', 'start', 'match', 'NH', 'HI', 'NM', 'MD', 'AS', 'nM', 'kmer')
 
 for (item in setdiff(colnames(d), c('read', 'chr', 'start', 'match', 'kmer'))){
@@ -176,7 +192,7 @@ d <- d[,setdiff(colnames(d), c('gtf_id', 'read'))]
 ```
 
 
-```{r, eval = TRUE}
+```{r serial0, eval = TRUE}
 
 ## we assume they share the chromosome, so we take into account just the start
 d <- d[order(d$gene_id, d$start),]
@@ -212,7 +228,6 @@ for (gene_id in unique(d$gene_id)) {
 
 ```
 
-
 ```
 simplified algorithm, based in continuous scoring:
 - for each gene
@@ -225,7 +240,7 @@ simplified algorithm, based in continuous scoring:
 -   repeat till the required num probes is fulfilled
 ```
 
-```{r}
+```{r serial1, eval = TRUE}
   
 for (gene_id in names(fd)) {
     ## cand-idates
@@ -529,8 +544,12 @@ summary(aggregate(tmp$kmer,
 # Exports
 
 ```{r}
-saveRDS(file = 'fd.rds', fd)
+## saveRDS(file = sprintf('fd.rds'), fd)
+write.table(file = sprintf('fd_chr_%s.tsv', params$chromosome),
+            x = fd, row.names = FALSE, col.names = TRUE, quote = FALSE)
 ```
+
+
 
 # Session info
 
