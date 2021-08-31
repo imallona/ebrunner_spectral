@@ -43,73 +43,20 @@ opts_chunk$set(fig.width = 5,
 
 ```{r}
 WD <- '/home/imallona/giulia'
+FILTERED_BED <- file.path(WD, 'safe_exons.bed')
 KMER_LENGTH <- 25
 NTHREADS <- 10
 NUM_PROBES <- 3   ## probes per gene
-MAPPING <- file.path(WD, 'mapping', sprintf('kmers_%s.uniques.gz', KMER_LENGTH))
-FILTERED_BED <- file.path(WD, 'safe_exons.bed')
-FEATURES <- file.path('/home/imallona', 'src',
-                      'ebrunner_spectral', '01_proof_of_concept', 'data', 'tf_mouse_gmoro.txt')
-DOWNSAMPLE <- TRUE
-
+OUTPUTS <- file.path(WD, 'probes')
 ```
 
 ```{r}
 
+d <- list()
+for (fn in list.files(OUTPUTS, pattern = "*tsv.gz")) {
+    d[[basename(fn)]] <- datatable::fread(fn, header = TRUE)
+}
 ```
-
-```{r}
-
-## TODO test properly, for 0/1 starts etc
-overlaps <- function(a_chr, a_start, a_end,
-                     b_chr, b_start, b_end) {
-    res <- FALSE
-    if (a_chr != b_chr){
-        res <- FALSE
-    }
-    else {
-        if (a_start %in% b_start:b_end | a_end %in% b_start:b_end |
-            b_start %in% a_start:a_end | b_end %in% a_start:a_end) {
-            res <- TRUE
-        }
-    }
-
-    return(res)
-}
-
-## overlaps(a_chr = 'a',
-##          a_start = 1,
-##          a_end = 10,
-##          b_chr = 'a',
-##          b_start = 2,
-##          b_end = 5)
-
-## overlaps(a_chr = 'a',
-##          a_start = 1,
-##          a_end = 10,
-##          b_chr = 'a',
-##          b_start = 1,
-##          b_end = 1)
-
-## overlaps(a_chr = 'a',
-##          a_start = 20,
-##          a_end = 30,
-##          b_chr = 'a',
-##          b_start = 1,
-##          b_end = 10)
-
-## TODO define the range that is 'valid' for this technique
-valid_gc <- function(x){
-    (x >= 40 & x < 60)
-}
-
-## this is not used... yet
-valid_melting <- function(x) {
-    (x > 45 & x < 60)
-}
-  
-```
-
 
 TODO list
 
@@ -117,7 +64,7 @@ TODO list
 - Make sure the kmers don't overlap multiple genes (multifeature)
 - Design a visualization approach
 - Keep track of how many probes are filtered out at each step; document this within the report
-- Parallelize (by gene)
+- Parallelize (by gene) DONE by chromosome (?)
 ```
 
 Shell design
@@ -128,49 +75,96 @@ Rmarkdown design
 
 <img src="figures/giulia2_bw.jpg" alt="rscript" width="350"/>
 
-```{r}
-
-if (params$chromosome == 'all') {
-    d <- as.data.frame(data.table::fread(MAPPING, nrows = ifelse(DOWNSAMPLE, yes = 5e5, no = Inf)))
-}
-else {
-    grepsys <- sprintf('LC_ALL=C fgrep -w %s %s', params$chromosome, MAPPING)
-    d <- as.data.frame(data.table::fread(grepsys, nrows = ifelse(DOWNSAMPLE, yes = 5e5, no = Inf)))
-}
-colnames(d) <- c('read', 'chr', 'start', 'match', 'NH', 'HI', 'NM', 'MD', 'AS', 'nM', 'kmer')
-
-for (item in setdiff(colnames(d), c('read', 'chr', 'start', 'match', 'kmer'))){
-    d[,item] <- as.numeric(gsub(paste0(item, ':i:|MD:Z:'), '', d[,item]))
-}
-
+```
+Simplified algorithm for probe picking, based in continuous scoring:
+- for each gene
+-   for each probe
+-     compute a compound score (to be refined)
+-   sort by compound score
+-   pick top probe
+-   browse probes with decreasing scores to pick the best performing iff it does not overlap
+       any previously picked ones; pick it, if satisfying the condition
+-   repeat till the required num probes is fulfilled
 ```
 
-```{r}
-d <- cbind(d,
-           strcapture(
-               pattern = "exon_coord=(.*):([0-9]+)-([0-9]+)([-+]{1});(.*)_kmer.*",
-               x = d$read,
-               proto = list(sim_chr = character(),
-                            sim_start = numeric(),
-                            sim_end = numeric(),
-                            sim_strand = character(),
-                            exon = character())))
-```
-
-First consistency check, are the mapped reads mapping into a region matching the one was simulated? For that we check the chromosome matches, and the mapping site is at less than 1 Mbp from the simulated site.
-
-```{r}
-d$simulation_locus_match <- FALSE
-d$simulation_locus_match <- d$sim_chr == d$chr & (abs(d$start - d$sim_start) < 1e6)
-stopifnot(all(d$simulation_locus_match))
-print('Check passed')
+The final score can be built on these individual scores:
 
 ```
+- num transcripts covered
+- GC content (boolean, being within a 'valid' range or not)
+- Presence of homopolymers (4-mers) (boolean)
+- Tm Wallace (not used for scoring yet)
+- Tm SantaLucia (not used for scoring yet)
+- `seldom_tx_score`: a measure of how 'unusual' the transcripts covered by a probe are.
+```
+
+Most of them are self-explanatory, except `seldom_tx_score`. This score is designed to favour probes which overlap to seldom/rare transcripts (as compared to the pool of other kmers).
+
+To do so, `seldom_tx_score` sums the (decreasing) ranks of all transcripts scrutinized by the candidate probes, e.g. giving a `1` to the least represented one, a `2` to the next one, etc. 
+
+The aim is to break any possible ties of probes covering the same (total) number of transcripts, favouring the less frequent transcripts. (The assumption is that other probes for the same gene will pick the most common transcripts anyway).
+
+Example: random gene, with two transcripts only.
+
+```
+gene A transcripts:
+                  Var1 Freq rank
+1 ENSMUST1  295    2
+2 ENSMUST2  531    1
+```
+
+So probes can be scored depending on how many transcripts do they cover: if overlapping
+
+```
+probe A: overlaps both: will have a score of 1+2 = 3
+probe B: overlaps ENSMUST1 only: 2 (reward; few probes overlap ENSMUST1)
+probe C: overlaps ENSMUST2 only: 1 (penalty; there are many probes overlapping ENSMUST2)
+```
+
+Another example: random gene, with three transcripts:
+
+```
+gene B transcripts:
+                  Var1 Freq rank
+1 ENSMUST1  795    1
+2 ENSMUST2  531    2
+3 ENSMUST3  100    3
+```
+
+And we're trying to score four probes:
+
+```
+probe      tx covered           seldom_tx_score
+probe1     ENSMUST1             1
+probe2     ENSMUST1,ENSMUST2    1+2=3
+probe3     ENSMUST2,ENSMUST3    2+3=5
+probe4     ENSMUST1,ENSMUST3    1+3=4
+```
+
+So in this case, in the absence of any other reason to score the probes differently, we would pick:
+probe3, probe4, and probe2.
+
+If only one transcript present, all kmers are assigned `seldom_tx_score = 1`.
+
+
+Compound scoring. The current score favours (linearly) number of transcripts covered, seldom_tx_score, Shannon entropy, having a GC content in a safe range, and lacking homopolymers.
+
+```
+(1)    fd[[gene_id]]$num_transcripts +
+(2)    fd[[gene_id]]$seldom_tx_score +
+(3)    fd[[gene_id]]$shannon_entropy +
+(4)    as.numeric(fd[[gene_id]]$valid_gc) + 
+(5)    (as.numeric(fd[[gene_id]]$homopolymer) * -1)
+```
+
+
+# PoC {.tabset .tabset-fade .tabset-pills}
+
+Browsing 10 genes. 
 
 
 ```{r}
-## Then, annotate with the gene, transcript and exon names/coordinates,
-## to check for even spacing, and feature covering.
+## gtf here
 
 gtf <- read.table(FILTERED_BED)
 colnames(gtf) <- c('gtf_chr', 'gtf_start', 'gtf_end', 'gtf_id', 'gtf_feature', 'gtf_strand')
@@ -181,224 +175,9 @@ gtf <- cbind(gtf,
                x = gtf$gtf_id,
                proto = list(exon = character(),
                             gene_id = character(), transcript_id = character())))
-```
 
-```{r}
-
-## Is this merge reasonable?
-##                   why not bedtools intersect with the whole GTF, to have the CDS metadata too? 
-d <- merge(d, gtf, by.x = 'exon', by.y = 'exon', all.x = TRUE)
-d <- d[,setdiff(colnames(d), c('gtf_id', 'read'))]
-```
-
-
-```{r serial0, eval = TRUE}
-
-## we assume they share the chromosome, so we take into account just the start
-d <- d[order(d$gene_id, d$start),]
-fd <- list()
-
-for (gene_id in unique(d$gene_id)) {
-    curr <- d[d$gene_id == gene_id,]
-    fd[[gene_id]] <- list()
-    ## overlaps <- FALSE
-    for (kmer in unique(curr$kmer)) {
-        num_transcripts <- length(curr[curr$kmer == kmer, 'transcript_id'])
-        transcripts <- paste(curr[curr$kmer == kmer, 'transcript_id'], collapse = ';')
-        exons <- paste(curr[curr$kmer == kmer, 'exon'], collapse = ';')
-        cigars <- paste(curr[curr$kmer == kmer, 'match'], collapse = ';')
-        strand <- curr[curr$kmer == kmer, 'gtf_strand'][1]
-        chr <- curr[curr$kmer == kmer, 'chr'][1]
-        start <- curr[curr$kmer == kmer, 'start'][1]
-        
-        ## todo get the 1-offset right
-        end <- ifelse(strand == '+',
-                      yes = start + KMER_LENGTH,
-                      no = start - KMER_LENGTH)
-
-        ## overlaps <- abs(curr$start - fd[[gene_id]][[i]]) <---- how to do this efficiently
-        fd[[gene_id]][[kmer]] <- setNames(c(gene_id, kmer, num_transcripts, transcripts, exons,
-                                             cigars, chr, start, end),
-                                          c('gene_id', 'kmer', 'num_transcripts', 'transcripts',
-                                            'exons',
-                                            'cigars', 'chr', 'start', 'end'))
-    }
-    ## cat('.')
-}
 
 ```
-
-```
-simplified algorithm, based in continuous scoring:
-- for each gene
--   for each probe
--     compute a compound score
--   sort by compound score
--   pick top probe
--   browse probes with decreasing scores to pick the best performing iff it does not overlap
-       any previously picked one; pick it, if satisfying the condition
--   repeat till the required num probes is fulfilled
-```
-
-```{r serial1, eval = TRUE}
-  
-for (gene_id in names(fd)) {
-    ## cand-idates
-    cand <- do.call(rbind.data.frame, fd[[gene_id]])
-    colnames(cand) <- c('gene_id', 'kmer', 'num_transcripts', 'transcripts', 'exons',
-                        'cigars', 'chr', 'start', 'end')
-    nums <- c('num_transcripts', 'start', 'end')
-    cand[,nums] <- lapply(cand[,nums], function(x) as.numeric(x))
-
-    ## sequence complexity, Shannon's entropy on sliding 2-mers
-    ## length of the substring
-    k <- 2
-    cand$shannon_entropy <- sapply(cand$kmer,
-                                   function(x) msu::shannon_entropy(factor(substring(x, 1:(nchar(x)-k+1), k:nchar(x)))))
-
-    cand$gc <- sapply(cand$kmer, function(x) TmCalculator::GC(x))
-    cand$valid_gc <- valid_gc(cand$gc)
-    
-    regex <- '(A){4,}|(T){4,}|(C){4,}|(G){4,}'
-    cand$homopolymer <- grepl(regex, cand$kmer, ignore.case = TRUE)
-
-    ## filter only with a good GC content and without homopolymers
-    cand <- cand[cand$valid_gc & !cand$homopolymer,]    
-
-    ## cand <- cand[order(cand$num_transcripts, cand$shannon_entropy, decreasing = TRUE),]
-
-    fd[[gene_id]] <- cand
-    ## cat('.')
-}
-```
-
-Scores used:
-
-```
-- num transcripts covered
-- GC content
-- Presence of homopolymers (4-mers)
-- Tm Wallace (not used for scoring yet)
-- Tm SantaLucia (not used for scoring yet)
-- `seldom_tx_score`: a measure of how 'unusual' the transcripts covered by a probe are.
-```
-
-In detail, `seldom_tx_score` sums the (decreasing) ranks of all transcripts scrutinized by the candidate probes, e.g. giving a `1` to the least represented one, a `2` to the next one, etc. 
-
-The aim is to break any possible ties of probes covering the same (total) number of transcripts, favouring the less frequent transcripts. (The assumption is that other probes for the same gene will pick the most common transcripts anyway).
-
-Example: random gene, with two transcripts only.
-
-```
-gene A population:
-                  Var1 Freq rank
-1 ENSMUST00000108150.2  295    2
-2 ENSMUST00000108151.3  531    1
-```
-
-So probes can be scored depending on how many transcripts do they cover: if overlapping
-
-```
-both: will have a score of 1+2 = 3
-first one only: 2
-second one only: 1 (so it's penalized because it covers the least kmer-covered transcript)
-```
-
-If only one transcript present, all kmers are given `seldom_tx_score = 1`.
-
-```{r}
-for (gene_id in names(fd)) {
-    fd[[gene_id]]$seldom_tx_score <- 1
-    
-    ft <- as.data.frame(table(unlist(strsplit(fd[[gene_id]]$transcripts,
-                                              split = ';'))))
-    rownames(ft) <- ft$Var1
-    
-    if (nrow(ft) > 1) {
-        ## rank, decreasing
-        ft$rank <- rank(ft$Freq)
-        for (i in 1:nrow(fd[[gene_id]])) {
-            checked <- unlist(strsplit(fd[[gene_id]]$transcripts[i], split = ';'))
-            fd[[gene_id]]$seldom_tx_score[i] <- sum(ft[checked,'rank'])
-        }
-    }
-}
-
-```
-
-Get an aggregated score, sort by score, pick the top one and then browse the list downwards picking probes that don't overlap any of the above, till the required num probes per gene is full.filled
-
-Current score favours (linearly) number of transcripts covered, seldom_tx_score, Shannon entropy, having a GC content inr ange, and lacking homopolymers (please note homopolymers are currently filtered out in a previous step - irrelevant here).
-
-```
-(1)    fd[[gene_id]]$num_transcripts +
-(2)    fd[[gene_id]]$seldom_tx_score +
-(3)    fd[[gene_id]]$shannon_entropy +
-(4)    as.numeric(fd[[gene_id]]$valid_gc) + 
-(5)    (as.numeric(fd[[gene_id]]$homopolymer) * -1)
-```
-
-```{r}
-for (gene_id in names(fd)) {
-    fd[[gene_id]]$picked <- FALSE
-    fd[[gene_id]]$Tm_NN <- NA
-    fd[[gene_id]]$Tm_Wallace <- NA
-    
-    fd[[gene_id]]$score <- fd[[gene_id]]$num_transcripts +
-        fd[[gene_id]]$seldom_tx_score +
-        fd[[gene_id]]$shannon_entropy +
-        as.numeric(fd[[gene_id]]$valid_gc) +        
-        (as.numeric(fd[[gene_id]]$homopolymer) * -1)
-
-    fd[[gene_id]] <- fd[[gene_id]][order(fd[[gene_id]]$score, decreasing = TRUE),]
-
-    fd[[gene_id]]$picked[1] <- TRUE
-
-    picked <- fd[[gene_id]][1,]
-    for (i in 2:nrow(fd[[gene_id]])) {        
-        curr <- fd[[gene_id]][i,]
-
-
-        if (!any(apply(picked, 1, function(x) overlaps(a_chr = curr$chr,
-                 a_start = curr$start,
-                 a_end = curr$end,
-                 b_chr = x['chr'],
-                 b_start = x['start'],
-                 b_end = x['end']))))  {
-            picked <- rbind(picked, curr)
-            fd[[gene_id]]$picked[i] <- TRUE
-
-            
-        }
-
-        if (sum(fd[[gene_id]]$picked) >= NUM_PROBES) break
-    }
-
-    ## add also some Tm data here, instead of at the scoring phase
-    fd[[gene_id]]$Tm_NN <- sapply(fd[[gene_id]]$kmer,
-                                      function(x) TmCalculator::Tm_NN(x,
-                                                      ambiguous = FALSE, comSeq = NULL,
-                                                      shift = 0,
-                                                      nn_table = "DNA_NN4",
-                                                      tmm_table = "DNA_TMM1",
-                                                      imm_table = "DNA_IMM1",
-                                                      de_table = "DNA_DE1",
-                                                      dnac1 = 25,
-                                                      dnac2 = 25,
-                                                      selfcomp = FALSE,
-                                                      Na = 50, K = 0, Tris = 0, Mg = 0,
-                                                      dNTPs = 0, saltcorr = 5))
-
-    fd[[gene_id]]$Tm_Wallace <- sapply(fd[[gene_id]]$kmer,
-                                           function(x) TmCalculator::Tm_Wallace(x))
-    
-    ## cat('.')
-}
-```
-
-# PoC {.tabset .tabset-fade .tabset-pills}
-
-Browsing 10 genes. 
 
 ```{r, results = 'asis'}
 
@@ -434,7 +213,7 @@ for (gene_id in head(names(fd), 10)){
     
 ```
 
-# Overal stats
+# Overall stats
 
 Genes provided:
 
@@ -540,15 +319,6 @@ summary(aggregate(tmp$kmer,
                   FUN = function(x) length(x)))
 
 ```
-
-# Exports
-
-```{r}
-## saveRDS(file = sprintf('fd.rds'), fd)
-write.table(file = sprintf('fd_chr_%s.tsv', params$chromosome),
-            x = fd, row.names = FALSE, col.names = TRUE, quote = FALSE)
-```
-
 
 
 # Session info

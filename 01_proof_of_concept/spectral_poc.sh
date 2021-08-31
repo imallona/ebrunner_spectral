@@ -35,9 +35,9 @@ GTF=gencode.vM27.basic.annotation.gff3     # genes gtf
 ## genesymbols/ensg identifers of targets
 FEATURES=/home/imallona/src/ebrunner_spectral/01_proof_of_concept/data/tf_mouse_gmoro.txt 
 GENOME=GRCm39.primary_assembly.genome.fa   # genome gtf (not transcriptome)
-NTHREADS=20                                # number of cores
+NTHREADS=5                                 # number of cores
 KMER_LENGTH=25                             # kmer length
-POSTPROC_RSCRIPT=/home/imallona/src/ebrunner_spectral/01_proof_of_concept/spectral_poc.Rmd
+POSTPROC_RSCRIPT=/home/imallona/src/ebrunner_spectral/01_proof_of_concept/spectral_poc_postprocess.R
 
 # binaries
 STAR=~/soft/star/STAR-2.7.3a/bin/Linux_x86_64/STAR   
@@ -230,15 +230,32 @@ samtools view mapping/kmers_"$KMER_LENGTH"Aligned.out.bam  | \
     pigz -p $NTHREADS --stdout > mapping/kmers_"$KMER_LENGTH".uniques.gz
 
 
-# postprocess in R, by chromosome (to be parallelized later/ snmk or xargs)
+# postprocess in R, by chromosome
 
+mkdir -p probes
 
+## sequential version
+# for chrom in $(seq 1 19) X Y
+# do
+#     chrom="chr"$chrom
+#     echo $chrom
 
-for chrom in $(seq 1 19) X Y
-do
-    chrom="chr"$chrom
-    echo $chrom
+#     # run=$(printf 'rmarkdown::render("%s")' "$result" "$size" "$name" "$visits" "$inbound" "$outbound")
+#     # R -e "rmarkdown::render('"P
+#     Rscript "$POSTPROC_RSCRIPT" "$chrom" probes/spectral_poc_"$chrom".tsv
+#     gunzip probes/spectral_poc_"$chrom".tsv
+# done
 
-    # run=$(printf 'rmarkdown::render("%s")' "$result" "$size" "$name" "$visits" "$inbound" "$outbound")
-    # R -e "rmarkdown::render('"P
-done
+## in batches of $NTHREADS chromosomes
+N=$NTHREADS
+(
+    for chrom in $(seq 1 19) X Y
+    do 
+        ((i=i%N)); ((i++==0)) && wait
+        Rscript "$POSTPROC_RSCRIPT" "$chrom" probes/spectral_poc_"$chrom".tsv &
+    done
+)
+
+gzip probes/*tsv
+
+# knit the 'final' report
