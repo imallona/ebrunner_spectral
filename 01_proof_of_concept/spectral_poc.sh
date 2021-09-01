@@ -249,8 +249,11 @@ mkdir -p probes
 ## in batches of $NTHREADS chromosomes
 N=$NTHREADS
 (
-    for chrom in $(seq 1 19) X Y
-    do 
+    ## chrY does not have much on it/skipping
+    for chrom in $(seq 1 19) X
+    do
+        chrom="chr""$chrom"
+
         ((i=i%N)); ((i++==0)) && wait
         Rscript "$POSTPROC_RSCRIPT" "$chrom" probes/spectral_poc_"$chrom".tsv &
     done
