@@ -13,7 +13,7 @@ suppressPackageStartupMessages({
     ## library('rDNAse')
     library('msu')             # for Shannon's entropy
     library('data.table')
-    library('Matrix')
+    ## library('Matrix')
     ## library('foreach')
     ## library('doParallel')
 })
@@ -146,6 +146,8 @@ d <- d[,setdiff(colnames(d), c('gtf_id', 'read'))]
 d <- d[order(d$gene_id, d$start),]
 fd <- list()
 
+message('check the 1-offset in chr start /end definitions')
+
 for (gene_id in unique(d$gene_id)) {
     curr <- d[d$gene_id == gene_id,]
     fd[[gene_id]] <- list()
@@ -157,12 +159,16 @@ for (gene_id in unique(d$gene_id)) {
         cigars <- paste(curr[curr$kmer == kmer, 'match'], collapse = ';')
         strand <- curr[curr$kmer == kmer, 'gtf_strand'][1]
         chr <- curr[curr$kmer == kmer, 'chr'][1]
-        start <- curr[curr$kmer == kmer, 'start'][1]
-        
-        ## todo get the 1-offset right
-        end <- ifelse(strand == '+',
-                      yes = start + KMER_LENGTH,
-                      no = start - KMER_LENGTH)
+
+        if (strand == '+') {
+            start <- curr[curr$kmer == kmer, 'start'][1]
+            end <- start + KMER_LENGTH
+        } else if (strand == '-') {
+            end <- curr[curr$kmer == kmer, 'start'][1]
+            start <- curr[curr$kmer == kmer, 'start'][1] - KMER_LENGTH
+        } else {
+            stop('malformed strand')
+        }
 
         ## overlaps <- abs(curr$start - fd[[gene_id]][[i]]) <---- how to do this efficiently
         fd[[gene_id]][[kmer]] <- setNames(c(gene_id, kmer, num_transcripts, transcripts, exons,
@@ -277,8 +283,6 @@ for (gene_id in names(fd)) {
 ## (3)    fd[[gene_id]]$shannon_entropy +
 ## (4)    as.numeric(fd[[gene_id]]$valid_gc) + 
 ## (5)    (as.numeric(fd[[gene_id]]$homopolymer) * -1)
-
-print('checkpoint')
 
 for (gene_id in names(fd)) {
     fd[[gene_id]]$picked <- FALSE
@@ -478,6 +482,10 @@ fd <- do.call(rbind.data.frame,
 
 
 ## saveRDS(file = sprintf('fd.rds'), fd)
+## to avoid sci notation (1e6), we cast ints to strings
+fd$start <- sprintf('%.f', fd$start)
+fd$end <- sprintf('%.f', fd$end)
+
 write.table(file = out,
             x = fd, row.names = FALSE, col.names = TRUE, quote = FALSE, sep = "\t")
 

@@ -262,3 +262,6 @@ N=$NTHREADS
 gzip probes/*tsv
 
 # knit the 'final' report
+R -e 'rmarkdown::render("spectral_poc.Rmd")'
+
+# generate files for IGV/UCSC genome browser.

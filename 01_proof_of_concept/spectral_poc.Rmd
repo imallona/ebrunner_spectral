@@ -75,13 +75,9 @@ TODO list
 - Parallelize (by gene) DONE by chromosome (?)
 ```
 
-Shell design
+Design
 
-<img src="figures/giulia1_bw.jpg" alt="shell" width="350"/>
-
-Rmarkdown design
-
-<img src="figures/giulia2_bw.jpg" alt="rscript" width="350"/>
+<img src="figures/spectral_poc.png" alt="shell" width="700"/>
 
 ```
 Simplified algorithm for probe picking, based in continuous scoring:
