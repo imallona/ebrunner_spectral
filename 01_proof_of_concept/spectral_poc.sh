@@ -95,17 +95,35 @@ if [ ! -f mm39.chromsizes ]; then
 fi
 
 ## then, get these 300 bp after each transcript start (strand aware of course)
-# LC_ALL=C grep -w gene selected.bed | \
-#     bedtools flank -i - -g mm39.chromsizes \
-#              -l 0 -r 300 -s > genes_300bp_up.bed
+
+## this is not correct, this will take the 300 nt before!
+# awk '$5== "transcript" {print $0}' selected.bed | \
+#         bedtools flank -i - -g mm39.chromsizes \
+#                  -l 0 -r 300 -s > transcripts_300bp_up.bed
+
+## we only process transcripts longer than 300 nt, if they're shorter we don't apply
+##   any mask; untested
+# awk '$5== "transcript" && ($3-$2) > 300 {print $0}' selected.bed | \
+#         awk 'OFS=FS="\t" {
+#            if ($6 == "+") {
+#              print $1,$2+300,$3,$4,$5,$6
+#            } else if ($6 == "-") {
+#              print $1,$2,$3-300,$4,$5,$6
+#            }          
+#         }' > transcripts_300bp_up.bed
+
 awk '$5== "transcript" {print $0}' selected.bed | \
         bedtools flank -i - -g mm39.chromsizes \
-                 -l 0 -r 300 -s > transcripts_300bp_up.bed
+                 -l 300 -r 0 -s | bedtools shift -i - -g mm39.chromsizes \
+                                           -p 300 -m -300 > transcripts_300bp_up.bed
 
 echo "Number of 300 bp regions to avoid: `wc -l transcripts_300bp_up.bed`"
 
 # remove these 5' regions from the regions to design the probes from
-bedtools intersect -v -a  selected.bed \
+# bedtools intersect -v -a  selected.bed \
+    #          -b transcripts_300bp_up.bed | grep -w exon > safe_exons.bed
+
+bedtools subtract -a  selected.bed \
          -b transcripts_300bp_up.bed | grep -w exon > safe_exons.bed
 
 echo "Number of features (5' 300 bp excluded): `wc -l safe_exons.bed`"
