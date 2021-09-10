@@ -22,7 +22,7 @@ WD <- '/home/imallona/giulia'
 KMER_LENGTH <- 25
 NTHREADS <- 10
 NUM_PROBES <- 3   ## probes per gene
-MAPPING <- file.path(WD, 'mapping', sprintf('kmers_%s.uniques.gz', KMER_LENGTH))
+MAPPING <- file.path(WD, 'mapping', sprintf('kmers_%s_uniques.bed.gz', KMER_LENGTH))
 FILTERED_BED <- file.path(WD, 'safe_exons.bed')
 FEATURES <- file.path('/home/imallona', 'src',
                       'ebrunner_spectral', '01_proof_of_concept', 'data', 'tf_mouse_gmoro.txt')
@@ -95,9 +95,15 @@ if (chrom == 'all') {
     d <- as.data.frame(data.table::fread(grepsys, nrows = ifelse(DOWNSAMPLE, yes = 5e5, no = Inf)))
 }
 
-colnames(d) <- c('read', 'chr', 'start', 'match', 'NH', 'HI', 'NM', 'MD', 'AS', 'nM', 'kmer')
+## colnames(d) <- c('read', 'chr', 'start', 'match', 'NH', 'HI', 'NM', 'MD', 'AS', 'nM', 'kmer')
+colnames(d) <- c('chr', 'start', 'end', 'read', 'V5', 'strand', 'V7', 'match',
+                 'V9', 'V10', 'V11', 'kmer', 'V13',
+                 'NH', 'HI', 'NM', 'MD', 'AS', 'nM', 'num_snps')
 
-for (item in setdiff(colnames(d), c('read', 'chr', 'start', 'match', 'kmer'))){
+d <- d[,grep('^V', colnames(d), invert = TRUE)]
+
+for (item in setdiff(colnames(d), c('read', 'chr', 'start', 'end', 'strand', 'match',
+                                    'kmer', 'num_snps'))){
     d[,item] <- as.numeric(gsub(paste0(item, ':i:|MD:Z:'), '', d[,item]))
 }
 
@@ -119,7 +125,7 @@ d <- cbind(d,
 
 ## use the overlap function here TODO
 d$simulation_locus_match <- FALSE
-d$simulation_locus_match <- d$sim_chr == d$chr & (abs(d$start - d$sim_start) < 1e6)
+d$simulation_locus_match <- d$sim_chr == d$chr & (abs(d$start - d$sim_start) < 1e5)
 stopifnot(all(d$simulation_locus_match))
 print('Check passed')
 
@@ -146,7 +152,8 @@ d <- d[,setdiff(colnames(d), c('gtf_id', 'read'))]
 d <- d[order(d$gene_id, d$start),]
 fd <- list()
 
-message('check the 1-offset in chr start /end definitions')
+message("check the 1-offset in chr start /end definitions
+updated with convert2bed, but now strand doesn't make sense")
 
 for (gene_id in unique(d$gene_id)) {
     curr <- d[d$gene_id == gene_id,]
@@ -159,23 +166,27 @@ for (gene_id in unique(d$gene_id)) {
         cigars <- paste(curr[curr$kmer == kmer, 'match'], collapse = ';')
         strand <- curr[curr$kmer == kmer, 'gtf_strand'][1]
         chr <- curr[curr$kmer == kmer, 'chr'][1]
+        start <- curr[curr$kmer == kmer, 'start'][1]
+        end <- curr[curr$kmer == kmer, 'end'][1]
+        num_snps <- curr[curr$kmer == kmer, 'num_snps'][1]
 
-        if (strand == '+') {
-            start <- curr[curr$kmer == kmer, 'start'][1]
-            end <- start + KMER_LENGTH
-        } else if (strand == '-') {
-            end <- curr[curr$kmer == kmer, 'start'][1]
-            start <- curr[curr$kmer == kmer, 'start'][1] - KMER_LENGTH
-        } else {
-            stop('malformed strand')
-        }
+        ## if (strand == '+') {
+        ##     start <- curr[curr$kmer == kmer, 'start'][1]
+        ##     end <- start + KMER_LENGTH
+        ## } else if (strand == '-') {
+        ##     end <- curr[curr$kmer == kmer, 'start'][1]
+        ##     start <- curr[curr$kmer == kmer, 'start'][1] - KMER_LENGTH
+        ## } else {
+        ##     stop('malformed strand')
+        ## }
 
         ## overlaps <- abs(curr$start - fd[[gene_id]][[i]]) <---- how to do this efficiently
         fd[[gene_id]][[kmer]] <- setNames(c(gene_id, kmer, num_transcripts, transcripts, exons,
-                                             cigars, chr, start, end, strand),
+                                             cigars, chr, start, end, strand, num_snps),
                                           c('gene_id', 'kmer', 'num_transcripts', 'transcripts',
                                             'exons',
-                                            'cigars', 'chr', 'start', 'end', 'strand'))
+                                            'cigars', 'chr', 'start', 'end', 'strand',
+                                            'num_snps'))
     }
     ## cat('.')
 }

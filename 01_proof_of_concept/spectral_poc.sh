@@ -19,6 +19,7 @@ GENOME=GRCm39.primary_assembly.genome.fa   # genome gtf (not transcriptome)
 NTHREADS=5                                 # number of cores
 KMER_LENGTH=25                             # kmer length
 POSTPROC_RSCRIPT=/home/imallona/src/ebrunner_spectral/01_proof_of_concept/spectral_poc_postprocess.R
+VARIATION=mus_musculus.gvf
 
 # binaries
 STAR=~/soft/star/STAR-2.7.3a/bin/Linux_x86_64/STAR   
@@ -44,6 +45,23 @@ if [[ ! -f "$GENOME".gz  &&  ! -f "$GENOME" ]]; then
     echo "Download genome"
     wget http://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M27/"$GENOME".gz
 fi
+
+## download variation file
+if [ ! -f variation_sorted.bed.gz ]; then
+    echo "Download variation file"
+    wget http://ftp.ensembl.org/pub/release-104/variation/gvf/mus_musculus/"$VARIATION".gz
+
+    # sort, make 0-based, half open, prepend 'chr', and make BED3 (no further metadata) 
+    pigz -p "$NTHREADS" --decompress -c "$VARIATION".gz | \
+        grep -v "^#" | \
+        awk '{OFS=FS="\t"; print "chr"$1,$4-1,$5}' | \
+        sort -k1,1 -k2,2n | \
+        pigz -p "$NTHREADS" -c > variation_sorted.bed.gz
+fi
+
+# echo 'chr1 1
+# chr1 100
+# chr1 10' | sort -k1,1 -k2,2n
 
 ## get genes of interest, these are absolutely random
 # cat << EOF > "$FEATURES"
@@ -237,11 +255,48 @@ mkdir -p mapping
 # we grep NH=1 to get unique mappers (as defined by STAR)
 # exon_coord=chr5:142889256-142889696-;ENSMUST00000167721.8:5_kmer_45
 
+# ## old version, nonbed
+# samtools view mapping/kmers_"$KMER_LENGTH"Aligned.out.bam  | \
+#     grep -w 'NH:i:1' | \
+#     awk '{OFS=FS="\t"; print $1,$3,$4,$6,$12,$13,$14,$15,$16,$17,$10}' | \
+#     pigz -p $NTHREADS --stdout > mapping/kmers_"$KMER_LENGTH".uniques.gz
+
+
+## convert2bed (bedops) alt start for adding further annotation ~~~~~~~~~~~~~~~~~~ 10.09.2021
+
+# check if the [start, end] SAM is effectively transformed to
+##   sorted, 0-based, half-open [start-1, end) BED
+
 samtools view mapping/kmers_"$KMER_LENGTH"Aligned.out.bam  | \
     grep -w 'NH:i:1' | \
-    awk '{OFS=FS="\t"; print $1,$3,$4,$6,$12,$13,$14,$15,$16,$17,$10}' | \
-    pigz -p $NTHREADS --stdout > mapping/kmers_"$KMER_LENGTH".uniques.gz
+    convert2bed --input=sam - | pigz -p $NTHREADS --stdout > \
+                                     mapping/kmers_"$KMER_LENGTH"_uniques.bed.gz
 
+# yet the strand doesn't make any sense, they're all positive? and shouldn't?
+# forward
+# [imallona@imlsportmacquarie mapping]$ samtools view -F 20 kmers_25Aligned.out.bam | wc -l
+# 10406491
+# reverse
+# [imallona@imlsportmacquarie mapping]$ samtools view -F 16 kmers_25Aligned.out.bam | wc -l
+# 10595131
+# [imallona@imlsportmacquarie mapping]$ zcat kmers_"$KMER_LENGTH"_uniques.bed.gz | cut -f6 | sort | uniq -c
+# 9853373 +
+# make sure starts are always lowers than ends...
+# zcat kmers_"$KMER_LENGTH"_uniques.bed.gz | awk '$2>$3'
+# unusual...
+# to be sorted out - maybe splitting by flag first, getting the sam2bed second independently
+# for the two sets of alignments
+
+# count the number of SNVs within each interval (kmer); this will be a measure of
+#  (lack of) conservation
+bedtools coverage -a mapping/kmers_"$KMER_LENGTH"_uniques.bed.gz \
+         -b variation_sorted.bed.gz \
+         -sorted \
+         -counts | pigz -p "$NTHREADS" --stdout > mapping/kmers_"$KMER_LENGTH"_uniques_var.bed.gz
+
+mv -f mapping/kmers_"$KMER_LENGTH"_uniques_var.bed.gz mapping/kmers_"$KMER_LENGTH"_uniques.bed.gz
+                        
+## sam2bed alt end ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # postprocess in R, by chromosome
 
@@ -278,3 +333,4 @@ gzip probes/*tsv
 R -e 'rmarkdown::render("/home/imallona/src/ebrunner_spectral/01_proof_of_concept/spectral_poc.Rmd")'
 
 # generate files for IGV/UCSC genome browser.
+# Add assert that the coordinates provided match the probe seq
