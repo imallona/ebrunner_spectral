@@ -9,6 +9,8 @@ EXONS="$WD"/safe_exons.bed
 
 MASK="$WD"/transcripts_300bp_up.bed
 
+LONGNON="$WD"/noncoding_transcripts.bed
+
 mkdir -p "$WD"/tracks
 
 ## track with probes
@@ -40,16 +42,31 @@ mv -f "$WD"/tracks/exons_track.bed.gz.tmp "$WD"/tracks/exons_track.bed.gz
 
 ## track with the mask (areas within the 300 bp of each tx, probes were not designed)
 
+# awk '{ 
+#        OFS=FS="\t"; 
+#        print $1,$2,$3,".","0",$6
+#       }' "$MASK" | gzip -c > "$WD"/tracks/mask_track.bed.gz
+
+# echo 'browser position chr6:52142645-52304303
+# track name=spectral_mask description="Spectral PoC: mask" color=255,0,0 visibility=1' | gzip -c > header.gz
+
+# zcat header.gz "$WD"/tracks/mask_track.bed.gz | gzip -c > "$WD"/tracks/mask_track.bed.gz.tmp
+# mv -f "$WD"/tracks/mask_track.bed.gz.tmp "$WD"/tracks/mask_track.bed.gz
+
+# rm header.gz
+
+## track with the longnoncoding mask (for lncs on the same strand as the target genes)
+
 awk '{ 
        OFS=FS="\t"; 
        print $1,$2,$3,".","0",$6
-      }' "$MASK" | gzip -c > "$WD"/tracks/mask_track.bed.gz
+      }' "$LONGNON" | gzip -c > "$WD"/tracks/lnc_track.bed.gz
 
 echo 'browser position chr6:52142645-52304303
-track name=spectral_mask description="Spectral PoC: mask" color=255,0,0 visibility=1' | gzip -c > header.gz
+track name=spectral_lnc_mask description="Spectral PoC: mask long noncoding RNAs" color=255,0,0 visibility=1' | gzip -c > header.gz
 
-zcat header.gz "$WD"/tracks/mask_track.bed.gz | gzip -c > "$WD"/tracks/mask_track.bed.gz.tmp
-mv -f "$WD"/tracks/mask_track.bed.gz.tmp "$WD"/tracks/mask_track.bed.gz
+zcat header.gz "$WD"/tracks/lnc_track.bed.gz | gzip -c > "$WD"/tracks/lnc.bed.gz.tmp
+mv -f "$WD"/tracks/lnc.bed.gz.tmp "$WD"/tracks/lnc_track.bed.gz
 
 rm header.gz
 

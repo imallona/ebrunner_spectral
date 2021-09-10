@@ -10,28 +10,9 @@
 ##
 ## Started 18 Aug 2021
 
-## Criteria 
-# 1.Specific for gene (in this case transcription factors)
-# 2.Non – overlapping capture sequences 
-# 3.Recognising as many transcript variants as possible
-# 4.~ 300 bp from 5’ end 
-# 5.In CDS
-# 6.Evenly spaced in gene
-# 7.GC content upstream of  probe binding
-# 8.Thermodynamic properties probe binding 
-
-# ## Importance criteria
-
-# A.In CDS
-# B.Specificity 
-# C.Thermodynamic properties determined by the program itself
-# D.GC content upstream of probe
-# E.As many transcript variants as possible 
-# F.Evenly spaced in gene (+ non-overlapping) in as many CDSs as possible connected to E 
-# G.~ 300 bp from 5’ end CDS
-
 WD=/home/imallona/giulia                   # working dir, in portmac
 GTF=gencode.vM27.basic.annotation.gff3     # genes gtf
+LONGNON_GTF=gencode.vM27.long_noncoding_RNAs.gff3
 ## genesymbols/ensg identifers of targets
 FEATURES=/home/imallona/src/ebrunner_spectral/01_proof_of_concept/data/tf_mouse_gmoro.txt 
 GENOME=GRCm39.primary_assembly.genome.fa   # genome gtf (not transcriptome)
@@ -52,8 +33,14 @@ if [ ! -f "$GTF".gz ]; then
     wget http://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M27/"$GTF".gz
 fi
 
+## get longnoncoding GTF
+if [ ! -f "$LONGNON_GTF".gz ]; then
+    echo "Download GTF"
+    wget http://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M27/"$LONGNON_GTF".gz
+fi
+
 ## download genome
-if [ ! -f "$GENOME".gz ]; then
+if [[ ! -f "$GENOME".gz  &&  ! -f "$GENOME" ]]; then
     echo "Download genome"
     wget http://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M27/"$GENOME".gz
 fi
@@ -74,59 +61,67 @@ fi
 # Check how many genes of interest are there
 echo "Designing probes for: `wc -l $FEATURES` genes"
 
-
 # grep genes of interest in gtf and transform to bed6
 # TODO brainstorm if exons are indeed to be fetched, and not CDS
+# pigz --decompress -p "$NTHREADS" --stdout --keep "$GTF".gz | \
+#     LC_ALL=C fgrep -v "^#" | \
+#     LC_ALL=C grep -w -f "$FEATURES" | \
+#     LC_ALL=C grep -e "exon\|gene\|transcript" | \
+#     awk '{OFS=FS="\t"; print $1,$4,$5,$9,$3,$7}'  > selected.bed
 pigz --decompress -p "$NTHREADS" --stdout --keep "$GTF".gz | \
     LC_ALL=C fgrep -v "^#" | \
     LC_ALL=C grep -w -f "$FEATURES" | \
-    LC_ALL=C grep -e "exon\|gene\|transcript" | \
+    LC_ALL=C grep -w "exon" | \
     awk '{OFS=FS="\t"; print $1,$4,$5,$9,$3,$7}'  > selected.bed
 
 echo "Number of features: `wc -l selected.bed`"
 
-# get the 5' 300 bp ranges per transcript (these will be removed from the analysis)
+
 # for that, first get the chromosome sizes
-pigz --decompress -p "$NTHREADS" "$GENOME".gz
+if [[ ! -f "$GENOME" ]]; then
+    pigz --decompress -p "$NTHREADS" "$GENOME".gz
+fi
 
 if [ ! -f mm39.chromsizes ]; then
     samtools faidx "$GENOME"
     cut -f1,2 "$GENOME".fai > mm39.chromsizes
 fi
 
-## then, get these 300 bp after each transcript start (strand aware of course)
+# get the 5' 300 bp ranges per transcript (these will be removed from the analysis)
+# ## then, get these 300 bp after each transcript start (strand aware of course)
 
-## this is not correct, this will take the 300 nt before!
 # awk '$5== "transcript" {print $0}' selected.bed | \
 #         bedtools flank -i - -g mm39.chromsizes \
-#                  -l 0 -r 300 -s > transcripts_300bp_up.bed
+#                  -l 300 -r 0 -s | bedtools shift -i - -g mm39.chromsizes \
+#                                            -p 300 -m -300 > transcripts_300bp_up.bed
 
-## we only process transcripts longer than 300 nt, if they're shorter we don't apply
-##   any mask; untested
-# awk '$5== "transcript" && ($3-$2) > 300 {print $0}' selected.bed | \
-#         awk 'OFS=FS="\t" {
-#            if ($6 == "+") {
-#              print $1,$2+300,$3,$4,$5,$6
-#            } else if ($6 == "-") {
-#              print $1,$2,$3-300,$4,$5,$6
-#            }          
-#         }' > transcripts_300bp_up.bed
+# echo "Number of 300 bp regions to avoid: `wc -l transcripts_300bp_up.bed`"
 
-awk '$5== "transcript" {print $0}' selected.bed | \
-        bedtools flank -i - -g mm39.chromsizes \
-                 -l 300 -r 0 -s | bedtools shift -i - -g mm39.chromsizes \
-                                           -p 300 -m -300 > transcripts_300bp_up.bed
+# # remove these 5' regions from the regions to design the probes from
+# # bedtools intersect -v -a  selected.bed \
+#     #          -b transcripts_300bp_up.bed | grep -w exon > safe_exons.bed
 
-echo "Number of 300 bp regions to avoid: `wc -l transcripts_300bp_up.bed`"
+# bedtools subtract -a  selected.bed \
+#          -b transcripts_300bp_up.bed | grep -w exon > safe_exons.bed
 
-# remove these 5' regions from the regions to design the probes from
-# bedtools intersect -v -a  selected.bed \
-    #          -b transcripts_300bp_up.bed | grep -w exon > safe_exons.bed
+# echo "Number of features (5' 300 bp excluded): `wc -l safe_exons.bed`"
 
-bedtools subtract -a  selected.bed \
-         -b transcripts_300bp_up.bed | grep -w exon > safe_exons.bed
 
-echo "Number of features (5' 300 bp excluded): `wc -l safe_exons.bed`"
+# then, mask out GTF features that overlap longnoncodings within the same strand
+
+# extract the longnoncoding transcripts:
+pigz --decompress -p "$NTHREADS" --stdout --keep "$LONGNON_GTF".gz | \
+    LC_ALL=C fgrep -v "^#" | \
+    LC_ALL=C grep -e "transcript" | \
+    awk '{OFS=FS="\t"; print $1,$4,$5,$9,$3,$7}' > noncoding_transcripts.bed
+
+# remove these nonconding transcripts from the target genes if they overlap within
+#   the same strand
+bedtools intersect -v \
+         -a selected.bed \
+         -b noncoding_transcripts.bed \
+         -s > safe_exons.bed
+
 # loop to extract unique (per exon) 25-mers to be stored with metadata, including:
 #  -gene they belong to
 #  -transcript they belong to
@@ -280,6 +275,6 @@ N=$NTHREADS
 gzip probes/*tsv
 
 # knit the 'final' report
-R -e 'rmarkdown::render("spectral_poc.Rmd")'
+R -e 'rmarkdown::render("/home/imallona/src/ebrunner_spectral/01_proof_of_concept/spectral_poc.Rmd")'
 
 # generate files for IGV/UCSC genome browser.

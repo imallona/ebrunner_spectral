@@ -394,8 +394,6 @@ text(x = 4, y = 20, labels = lm_eqn(fit), col ='darkred', cex = 0.6)
 text(2, 21, labels = sprintf('R^2=%s', round(r2, 2)), col = 'darkred', cex = 0.6)
 ```
 
-
-
 # Session info
 
 ```{r}
