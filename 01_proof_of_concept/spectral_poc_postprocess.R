@@ -33,7 +33,8 @@ args <- commandArgs(trailingOnly = TRUE)
 print(args)
 
 if (length(args) != 2) {
-  stop("Two argument must be supplied: chromosome (all for no filtering) and file output name", call.=FALSE)
+    stop("Two argument must be supplied: chromosome (all for no filtering) and file output name",
+         call.=FALSE)
 } 
 
 chrom <- args[1]
@@ -150,10 +151,13 @@ d <- d[,setdiff(colnames(d), c('gtf_id', 'read'))]
 
 ## we assume they share the chromosome, so we take into account just the start
 d <- d[order(d$gene_id, d$start),]
+
+## table(d$strand, d$sim_strand)
+## table(d$strand, d$gtf_strand)
+
 fd <- list()
 
-message("check the 1-offset in chr start /end definitions
-updated with convert2bed, but now strand doesn't make sense")
+message("check the 1-offset, closed intervals in coord start /end definitions; now with sam2bed')
 
 for (gene_id in unique(d$gene_id)) {
     curr <- d[d$gene_id == gene_id,]
@@ -206,8 +210,8 @@ for (gene_id in names(fd)) {
     ## cand-idates
     cand <- do.call(rbind.data.frame, fd[[gene_id]])
     colnames(cand) <- c('gene_id', 'kmer', 'num_transcripts', 'transcripts', 'exons',
-                        'cigars', 'chr', 'start', 'end', 'strand')
-    nums <- c('num_transcripts', 'start', 'end')
+                        'cigars', 'chr', 'start', 'end', 'strand', 'num_snps')
+    nums <- c('num_transcripts', 'start', 'end', 'num_snps')
     cand[,nums] <- lapply(cand[,nums], function(x) as.numeric(x))
 
     ## sequence complexity, Shannon's entropy on sliding 2-mers
@@ -286,14 +290,13 @@ for (gene_id in names(fd)) {
 ## 
 ## Get an aggregated score, sort by score, pick the top one and then browse the list downwards picking probes that don't overlap any of the above, till the required num probes per gene is full.filled
 
-## Current score favours (linearly) number of transcripts covered, seldom_tx_score, Shannon entropy, having a GC content inr ange, and lacking homopolymers.
+## Mind the normalization of the seldom_tx_score by recursive sum
 
+recursive_sum <- function(x) {
+    if (x == 1)    return (1)
+    else           return (x + recursive_sum(x-1))
+}
 
-## (1)    fd[[gene_id]]$num_transcripts +
-## (2)    fd[[gene_id]]$seldom_tx_score +
-## (3)    fd[[gene_id]]$shannon_entropy +
-## (4)    as.numeric(fd[[gene_id]]$valid_gc) + 
-## (5)    (as.numeric(fd[[gene_id]]$homopolymer) * -1)
 
 for (gene_id in names(fd)) {
     fd[[gene_id]]$picked <- FALSE
@@ -301,10 +304,11 @@ for (gene_id in names(fd)) {
     fd[[gene_id]]$Tm_Wallace <- NA
     
     fd[[gene_id]]$score <- fd[[gene_id]]$num_transcripts +
-        fd[[gene_id]]$seldom_tx_score +
+        (fd[[gene_id]]$seldom_tx_score/recursive_sum(fd[[gene_id]]$num_transcripts)) +
         fd[[gene_id]]$shannon_entropy +
         as.numeric(fd[[gene_id]]$valid_gc) +        
-        (as.numeric(fd[[gene_id]]$homopolymer) * -1)
+        (as.numeric(fd[[gene_id]]$homopolymer) * -1) +
+        (fd[[gene_id]]$num_snps * -1)
 
     fd[[gene_id]] <- fd[[gene_id]][order(fd[[gene_id]]$score, decreasing = TRUE),]
 
@@ -416,81 +420,6 @@ for (gene_id in names(fd)) {
 
 fd <- do.call(rbind.data.frame,
                   lapply(fd, function(x) return(x[x$picked,])))
-
-## tmp <- merge(fd, known, by = 'gene_id', all.x = TRUE)
-
-## tmp <- tmp[order(tmp$num_coverable_transcripts),]
-
-
-## par(mfrow = c(2,2))
-## plot(x = 1:nrow(tmp),
-##      y = tmp$num_coverable_transcripts,
-##      pch = 3,
-##      ylim = c(0, max(tmp$num_coverable_transcripts)),
-##      xlab = 'gene (sorted by num transcripts)',
-##      ylab = 'num target transcripts per gene')
-##      col = 'black')
-
-## plot(x = 1:nrow(tmp),
-##      y = tmp$num_transcripts,
-##      ylim = c(0, max(tmp$num_coverable_transcripts)),
-##      ylab = 'num covered transcripts per gene',
-##      xlab = 'gene (sorted by num transcripts)',
-##      col = 'darkred',
-##      pch = 19,
-##      type = 'b')
-
-## ## points(x = 1:nrow(tmp),
-## ##        y = tmp$num_transcripts,
-## ##        col = 'blue',
-## ##        pch = 6,
-## ##        type = 'b')
-
-## plot(x = 1:nrow(tmp),
-##      y = tmp$num_coverable_transcripts,
-##      ylim = c(min(tmp$num_transcripts - tmp$num_coverable_transcripts),
-##               max(tmp$num_coverable_transcripts)),
-##      pch = 3,
-##      xlab = 'gene (sorted by num transcripts)',
-##      ylab = 'num target transcripts per gene',
-##      col = 'black')
-
-## points(x = 1:nrow(tmp),
-##      y = tmp$num_transcripts - tmp$num_coverable_transcripts,
-##      ylim = c(min(tmp$num_transcripts - tmp$num_coverable_transcripts),
-##               max(tmp$num_coverable_transcripts)),
-##      ylab = 'num covered transcripts per gene',
-##      xlab = 'gene (sorted by num transcripts)',
-##      col = 'darkblue',
-##      pch = 19,
-##      type = 'b')
-
-## legend('topleft', legend = c("num target transcripts",
-##                              "num covered transcripts - num target transcripts"),
-##        col=c("black", "darkblue"), pch = c(3, 19),
-##        cex = 0.8)
-
-
-
-## plot(x = jitter(tmp$num_transcripts, 1),
-##      y = jitter(tmp$num_coverable_transcripts, 1),
-##      pch = 19,
-##      ylab = 'num target transcripts per gene (jitter)',
-##      xlab = 'num covered transcripts per gene (jitter)',
-##      col = rgb(0, 0, 255, max = 255, alpha = 125))
-
-
-## Average number probes per gene... it's three for all of them (?).
-
-
-## summary(aggregate(tmp$kmer,
-##                   by=  list(tmp$gene_id),
-##                   FUN = function(x) length(x)))
-
-
-## 
-## # Exports
-
 
 ## saveRDS(file = sprintf('fd.rds'), fd)
 ## to avoid sci notation (1e6), we cast ints to strings

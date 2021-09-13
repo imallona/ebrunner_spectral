@@ -172,8 +172,9 @@ do
     gene=$([[ $identifier =~ .*gene_id=(.*)\;transcript_id.* ]] && echo "${BASH_REMATCH[1]}")
     transcript=$([[ $identifier =~ .*transcript_id=(.*)\;gene_type.* ]] && echo "${BASH_REMATCH[1]}")
     id_short=$(awk -v exon="$exon" '{print "exon_coord="$1":"$2"-"$3$6";"exon}' "$i".bed)
-    
-    bedtools getfasta -name -fi "$GENOME" -bed "$i".bed > "$i".fa
+
+    ## note the strand-specific fasta extract
+    bedtools getfasta -name -fi "$GENOME" -bed "$i".bed -s > "$i".fa
     wordcount --sequence "$i".fa -wordsize="$KMER_LENGTH" -outfile "$i".wordcount &> /dev/null
 
     # get only kmers appearing once within that exon
@@ -266,26 +267,13 @@ mkdir -p mapping
 
 # check if the [start, end] SAM is effectively transformed to
 ##   sorted, 0-based, half-open [start-1, end) BED
-
+## during the process, we remove any kmer that was duplicated (as input, e.g. kmers
+##   from different genes being identical)
 samtools view mapping/kmers_"$KMER_LENGTH"Aligned.out.bam  | \
     grep -w 'NH:i:1' | \
+    awk '{a[$10]++;b[$10]=$0}END{for(x in a)if(a[x]==1)print b[x]}' | \
     convert2bed --input=sam - | pigz -p $NTHREADS --stdout > \
                                      mapping/kmers_"$KMER_LENGTH"_uniques.bed.gz
-
-# yet the strand doesn't make any sense, they're all positive? and shouldn't?
-# forward
-# [imallona@imlsportmacquarie mapping]$ samtools view -F 20 kmers_25Aligned.out.bam | wc -l
-# 10406491
-# reverse
-# [imallona@imlsportmacquarie mapping]$ samtools view -F 16 kmers_25Aligned.out.bam | wc -l
-# 10595131
-# [imallona@imlsportmacquarie mapping]$ zcat kmers_"$KMER_LENGTH"_uniques.bed.gz | cut -f6 | sort | uniq -c
-# 9853373 +
-# make sure starts are always lowers than ends...
-# zcat kmers_"$KMER_LENGTH"_uniques.bed.gz | awk '$2>$3'
-# unusual...
-# to be sorted out - maybe splitting by flag first, getting the sam2bed second independently
-# for the two sets of alignments
 
 # count the number of SNVs within each interval (kmer); this will be a measure of
 #  (lack of) conservation

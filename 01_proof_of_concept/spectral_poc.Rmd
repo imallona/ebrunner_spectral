@@ -18,9 +18,8 @@ params:
 ```{r}
 suppressPackageStartupMessages({
     library(knitr)
-    library('TmCalculator')
-    ## for Shannon's entropy (categorical)
-    library('msu')            
+    ## library('TmCalculator')
+    ## library('msu')               # for Shannon's entropy (categorical)     
     library('data.table')
     ## library('Matrix')
     ## library('foreach')
@@ -153,16 +152,28 @@ probe3 > probe4 > probe2 > probe1 > (others).
 
 If only one transcript present, all kmers are assigned `seldom_tx_score = 1`.
 
-Compound scoring. The current score favours (linearly, unweighted): number of transcripts covered, `seldom_tx_score`, Shannon entropy (a measure of probe complexity), having a GC content in a safe range (40 < x < 60 Celsius), and lacking homopolymers (absence of 4-mers).
+Compound scoring. The current score favours (linearly, unweighted): number of transcripts covered, (somewhat normalized) `seldom_tx_score`, Shannon entropy (a measure of probe complexity), having a GC content in a safe range (40 < x < 60 Celsius), lacking homopolymers (absence of 4-mers), and number of SNPs.
+
+Document the normalized seldom tx score here.
+
+```
+TODO
+```
 
 ```
 (1)    fd[[gene_id]]$num_transcripts +
-(2)    fd[[gene_id]]$seldom_tx_score +
+(2)    (fd[[gene_id]]$seldom_tx_score/recursive_sum(fd[[gene_id]]$num_transcripts))
 (3)    fd[[gene_id]]$shannon_entropy +
 (4)    as.numeric(fd[[gene_id]]$valid_gc) + 
 (5)    (as.numeric(fd[[gene_id]]$homopolymer) * -1)
+(6)    (fd[[gene_id]]$num_snps * -1)
 ```
 
+Document the SNP procedure here
+
+```
+TODO
+```
 
 # PoC {.tabset .tabset-fade .tabset-pills}
 
