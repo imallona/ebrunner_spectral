@@ -18,9 +18,8 @@ params:
 ```{r}
 suppressPackageStartupMessages({
     library(knitr)
-    library('TmCalculator')
-    ## for Shannon's entropy (categorical)
-    library('msu')            
+    ## library('TmCalculator')
+    ## library('msu')               # for Shannon's entropy (categorical)     
     library('data.table')
     ## library('Matrix')
     ## library('foreach')
@@ -75,13 +74,9 @@ TODO list
 - Parallelize (by gene) DONE by chromosome (?)
 ```
 
-Shell design
+Design
 
-<img src="figures/giulia1_bw.jpg" alt="shell" width="350"/>
-
-Rmarkdown design
-
-<img src="figures/giulia2_bw.jpg" alt="rscript" width="350"/>
+<img src="figures/spectral_poc.png" alt="shell" width="700"/>
 
 ```
 Simplified algorithm for probe picking, based in continuous scoring:
@@ -157,16 +152,28 @@ probe3 > probe4 > probe2 > probe1 > (others).
 
 If only one transcript present, all kmers are assigned `seldom_tx_score = 1`.
 
-Compound scoring. The current score favours (linearly, unweighted): number of transcripts covered, `seldom_tx_score`, Shannon entropy (a measure of probe complexity), having a GC content in a safe range (40 < x < 60 Celsius), and lacking homopolymers (absence of 4-mers).
+Compound scoring. The current score favours (linearly, unweighted): number of transcripts covered, (somewhat normalized) `seldom_tx_score`, Shannon entropy (a measure of probe complexity), having a GC content in a safe range (40 < x < 60 Celsius), lacking homopolymers (absence of 4-mers), and number of SNPs.
+
+Document the normalized seldom tx score here.
+
+```
+TODO
+```
 
 ```
 (1)    fd[[gene_id]]$num_transcripts +
-(2)    fd[[gene_id]]$seldom_tx_score +
+(2)    (fd[[gene_id]]$seldom_tx_score/recursive_sum(fd[[gene_id]]$num_transcripts))
 (3)    fd[[gene_id]]$shannon_entropy +
 (4)    as.numeric(fd[[gene_id]]$valid_gc) + 
 (5)    (as.numeric(fd[[gene_id]]$homopolymer) * -1)
+(6)    (fd[[gene_id]]$num_snps * -1)
 ```
 
+Document the SNP procedure here
+
+```
+TODO
+```
 
 # PoC {.tabset .tabset-fade .tabset-pills}
 
@@ -299,7 +306,7 @@ table(tmp$status)
 
 
 
-```{r, fig.width = 7, fig.height = 7}
+```{r, eval = FALSE, fig.width = 7, fig.height = 7}
 par(mfrow = c(2,2), pty = "s")
 plot(x = 1:nrow(tmp),
      y = tmp$num_tx,
@@ -363,7 +370,7 @@ hist(tmp$num_covered_tx - tmp$num_tx,
 ```
 
 
-```{r, fig.width = 6, fig.height = 6}
+```{r, fig.width = 5, fig.height = 5}
 par(mfrow = c(1,1), pty = "s")
 
 plot(y = jitter(tmp$num_covered_tx, 2),
@@ -398,7 +405,125 @@ text(x = 4, y = 20, labels = lm_eqn(fit), col ='darkred', cex = 0.6)
 text(2, 21, labels = sprintf('R^2=%s', round(r2, 2)), col = 'darkred', cex = 0.6)
 ```
 
+# Covered vs true transcripts, stratified by number of probes per gene {.tabset .tabset-pills}
 
+```{r, results = 'asis', fig.width = 7, fig.height = 7}
+
+fd <- fd[order(fd$score, decreasing = TRUE),]
+
+known <- aggregate(gtf$transcript_id,
+                   by=  list(gtf$gene_id),
+                   FUN = function(x) length(unique(x)))
+
+colnames(known) <- c('gene_id', 'num_tx')
+
+for (num_probes in 1:10) {
+    cat(sprintf('## Probes per gene: %s {.tabset .tabset-pills}\n\n', num_probes))
+    reduced <- Reduce(rbind.data.frame, by(fd, fd['gene_id'], head, n = num_probes))
+
+    
+    ## to get the num transcripts covered per gene, we need to aggregate
+    ## the unique transcripts per gene from the probes'data
+
+    covered <- with(reduced, tapply(transcripts, list(gene_id),
+                                    FUN = function(x)
+                                        length(unique(unlist(strsplit(x, split = ";"))))))
+
+    covered <- data.frame(gene_id = names(covered),
+                          num_covered_tx = covered)
+
+    missing <- data.frame(gene_id = unique(gtf$gene_id)[!unique(gtf$gene_id) %in%
+                                                        unique(reduced$gene_id)],
+                          num_covered_tx = 0)
+
+    covered <- rbind(covered, missing)
+
+    
+    tmp <- merge(known, covered, by = 'gene_id')
+    stopifnot(all(tmp$num_tx >= tmp$num_covered_tx))
+    
+    tmp <- tmp[order(tmp$num_tx),]
+
+
+    tmp$status <- ifelse(tmp$num_covered_tx > 0, 'covered', 'missed')
+    tmp$status[tmp$num_tx == tmp$num_covered_tx] <- 'perfect'
+
+    cat('### Genes status probes:', num_probes, '\n\n')
+    
+    cat(sprintf('Gene status with %s probes per gene\n\n', num_probes))
+    print(knitr::kable(as.data.frame(table(tmp$status)), format = "html"))
+
+    cat('\n\n')
+    
+    cat('### Plot probes:', num_probes, '\n\n')
+    
+    par(mfrow = c(2,2), pty = "s", mai = c(0.6, 0.6, 0.6, 0.2))
+    
+    plot(x = 1:nrow(tmp),
+         y = tmp$num_tx,
+         pch = 3,
+         ylim = c(0, max(tmp$num_tx)),
+         xlab = 'gene (sorted by num transcripts)',
+         ylab = 'num target transcripts per gene',
+         col = 'black',
+         cex = 0.6,
+         main = 'true tx per gene')
+
+    mtext(sprintf("%s probes per gene", num_probes),
+          side = 3, line = -2, outer = TRUE)
+
+    plot(x = 1:nrow(tmp),
+         y = tmp$num_covered_tx,
+         ylim = c(0, max(tmp$num_covered_tx)),
+         ylab = 'num covered transcripts per gene',
+         xlab = 'gene (sorted by num transcripts)',
+         col = as.numeric(as.factor(tmp$status)),
+         pch = 19,
+         cex = 0.6,
+         type = 'p',
+         main = 'covered tx per gene')
+
+    legend('topleft', legend = levels(as.factor(tmp$status)),
+           col= 1: nlevels(as.factor(tmp$status)),
+           pch = 19,
+           cex = 1)
+
+    ## points(x = 1:nrow(tmp),
+    ##        y = tmp$num_transcripts,
+    ##        col = 'blue',
+    ##        pch = 6,
+    ##        type = 'b')
+
+    plot(x = 1:nrow(tmp),
+         y = tmp$num_tx,
+         ylim = c(min(tmp$num_covered_tx - tmp$num_tx),
+                  max(tmp$num_tx)),
+         pch = 3,
+         cex = 0.6,
+         xlab = 'gene (sorted by true num transcripts)',
+         ylab = 'num transcripts',
+         main = 'delta',
+         col = 'black')
+
+    points(x = 1:nrow(tmp),
+           y = tmp$num_covered_tx - tmp$num_tx,
+           col = 'darkblue',
+           pch = 19,
+           cex = 0.6,
+           type = 'p')
+
+    legend('topleft', legend = c("num target (true) tx",
+                                 "num covered tx - num true tx"),
+           col=c("black", "darkblue"), pch = c(3, 19),
+           cex = 1)
+
+    hist(tmp$num_covered_tx - tmp$num_tx,
+         main = 'num covered tx -\n num true tx',
+         breaks = 15)
+
+    cat('\n\n')
+}
+```
 
 # Session info
 

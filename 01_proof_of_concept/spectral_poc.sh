@@ -10,34 +10,16 @@
 ##
 ## Started 18 Aug 2021
 
-## Criteria 
-# 1.Specific for gene (in this case transcription factors)
-# 2.Non – overlapping capture sequences 
-# 3.Recognising as many transcript variants as possible
-# 4.~ 300 bp from 5’ end 
-# 5.In CDS
-# 6.Evenly spaced in gene
-# 7.GC content upstream of  probe binding
-# 8.Thermodynamic properties probe binding 
-
-# ## Importance criteria
-
-# A.In CDS
-# B.Specificity 
-# C.Thermodynamic properties determined by the program itself
-# D.GC content upstream of probe
-# E.As many transcript variants as possible 
-# F.Evenly spaced in gene (+ non-overlapping) in as many CDSs as possible connected to E 
-# G.~ 300 bp from 5’ end CDS
-
 WD=/home/imallona/giulia                   # working dir, in portmac
 GTF=gencode.vM27.basic.annotation.gff3     # genes gtf
+LONGNON_GTF=gencode.vM27.long_noncoding_RNAs.gff3
 ## genesymbols/ensg identifers of targets
 FEATURES=/home/imallona/src/ebrunner_spectral/01_proof_of_concept/data/tf_mouse_gmoro.txt 
 GENOME=GRCm39.primary_assembly.genome.fa   # genome gtf (not transcriptome)
 NTHREADS=5                                 # number of cores
 KMER_LENGTH=25                             # kmer length
 POSTPROC_RSCRIPT=/home/imallona/src/ebrunner_spectral/01_proof_of_concept/spectral_poc_postprocess.R
+VARIATION=mus_musculus.gvf
 
 # binaries
 STAR=~/soft/star/STAR-2.7.3a/bin/Linux_x86_64/STAR   
@@ -52,11 +34,34 @@ if [ ! -f "$GTF".gz ]; then
     wget http://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M27/"$GTF".gz
 fi
 
+## get longnoncoding GTF
+if [ ! -f "$LONGNON_GTF".gz ]; then
+    echo "Download GTF"
+    wget http://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M27/"$LONGNON_GTF".gz
+fi
+
 ## download genome
-if [ ! -f "$GENOME".gz ]; then
+if [[ ! -f "$GENOME".gz  &&  ! -f "$GENOME" ]]; then
     echo "Download genome"
     wget http://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M27/"$GENOME".gz
 fi
+
+## download variation file
+if [ ! -f variation_sorted.bed.gz ]; then
+    echo "Download variation file"
+    wget http://ftp.ensembl.org/pub/release-104/variation/gvf/mus_musculus/"$VARIATION".gz
+
+    # sort, make 0-based, half open, prepend 'chr', and make BED3 (no further metadata) 
+    pigz -p "$NTHREADS" --decompress -c "$VARIATION".gz | \
+        grep -v "^#" | \
+        awk '{OFS=FS="\t"; print "chr"$1,$4-1,$5}' | \
+        sort -k1,1 -k2,2n | \
+        pigz -p "$NTHREADS" -c > variation_sorted.bed.gz
+fi
+
+# echo 'chr1 1
+# chr1 100
+# chr1 10' | sort -k1,1 -k2,2n
 
 ## get genes of interest, these are absolutely random
 # cat << EOF > "$FEATURES"
@@ -74,41 +79,67 @@ fi
 # Check how many genes of interest are there
 echo "Designing probes for: `wc -l $FEATURES` genes"
 
-
 # grep genes of interest in gtf and transform to bed6
 # TODO brainstorm if exons are indeed to be fetched, and not CDS
+# pigz --decompress -p "$NTHREADS" --stdout --keep "$GTF".gz | \
+#     LC_ALL=C fgrep -v "^#" | \
+#     LC_ALL=C grep -w -f "$FEATURES" | \
+#     LC_ALL=C grep -e "exon\|gene\|transcript" | \
+#     awk '{OFS=FS="\t"; print $1,$4,$5,$9,$3,$7}'  > selected.bed
 pigz --decompress -p "$NTHREADS" --stdout --keep "$GTF".gz | \
     LC_ALL=C fgrep -v "^#" | \
     LC_ALL=C grep -w -f "$FEATURES" | \
-    LC_ALL=C grep -e "exon\|gene\|transcript" | \
+    LC_ALL=C grep -w "exon" | \
     awk '{OFS=FS="\t"; print $1,$4,$5,$9,$3,$7}'  > selected.bed
 
 echo "Number of features: `wc -l selected.bed`"
 
-# get the 5' 300 bp ranges per transcript (these will be removed from the analysis)
+
 # for that, first get the chromosome sizes
-pigz --decompress -p "$NTHREADS" "$GENOME".gz
+if [[ ! -f "$GENOME" ]]; then
+    pigz --decompress -p "$NTHREADS" "$GENOME".gz
+fi
 
 if [ ! -f mm39.chromsizes ]; then
     samtools faidx "$GENOME"
     cut -f1,2 "$GENOME".fai > mm39.chromsizes
 fi
 
-## then, get these 300 bp after each transcript start (strand aware of course)
-# LC_ALL=C grep -w gene selected.bed | \
-#     bedtools flank -i - -g mm39.chromsizes \
-#              -l 0 -r 300 -s > genes_300bp_up.bed
-awk '$5== "transcript" {print $0}' selected.bed | \
-        bedtools flank -i - -g mm39.chromsizes \
-                 -l 0 -r 300 -s > transcripts_300bp_up.bed
+# get the 5' 300 bp ranges per transcript (these will be removed from the analysis)
+# ## then, get these 300 bp after each transcript start (strand aware of course)
 
-echo "Number of 300 bp regions to avoid: `wc -l transcripts_300bp_up.bed`"
+# awk '$5== "transcript" {print $0}' selected.bed | \
+#         bedtools flank -i - -g mm39.chromsizes \
+#                  -l 300 -r 0 -s | bedtools shift -i - -g mm39.chromsizes \
+#                                            -p 300 -m -300 > transcripts_300bp_up.bed
 
-# remove these 5' regions from the regions to design the probes from
-bedtools intersect -v -a  selected.bed \
-         -b transcripts_300bp_up.bed | grep -w exon > safe_exons.bed
+# echo "Number of 300 bp regions to avoid: `wc -l transcripts_300bp_up.bed`"
 
-echo "Number of features (5' 300 bp excluded): `wc -l safe_exons.bed`"
+# # remove these 5' regions from the regions to design the probes from
+# # bedtools intersect -v -a  selected.bed \
+#     #          -b transcripts_300bp_up.bed | grep -w exon > safe_exons.bed
+
+# bedtools subtract -a  selected.bed \
+#          -b transcripts_300bp_up.bed | grep -w exon > safe_exons.bed
+
+# echo "Number of features (5' 300 bp excluded): `wc -l safe_exons.bed`"
+
+
+# then, mask out GTF features that overlap longnoncodings within the same strand
+
+# extract the longnoncoding transcripts:
+pigz --decompress -p "$NTHREADS" --stdout --keep "$LONGNON_GTF".gz | \
+    LC_ALL=C fgrep -v "^#" | \
+    LC_ALL=C grep -e "transcript" | \
+    awk '{OFS=FS="\t"; print $1,$4,$5,$9,$3,$7}' > noncoding_transcripts.bed
+
+# remove these nonconding transcripts from the target genes if they overlap within
+#   the same strand
+bedtools intersect -v \
+         -a selected.bed \
+         -b noncoding_transcripts.bed \
+         -s > safe_exons.bed
+
 # loop to extract unique (per exon) 25-mers to be stored with metadata, including:
 #  -gene they belong to
 #  -transcript they belong to
@@ -141,8 +172,9 @@ do
     gene=$([[ $identifier =~ .*gene_id=(.*)\;transcript_id.* ]] && echo "${BASH_REMATCH[1]}")
     transcript=$([[ $identifier =~ .*transcript_id=(.*)\;gene_type.* ]] && echo "${BASH_REMATCH[1]}")
     id_short=$(awk -v exon="$exon" '{print "exon_coord="$1":"$2"-"$3$6";"exon}' "$i".bed)
-    
-    bedtools getfasta -name -fi "$GENOME" -bed "$i".bed > "$i".fa
+
+    ## note the strand-specific fasta extract
+    bedtools getfasta -name -fi "$GENOME" -bed "$i".bed -s > "$i".fa
     wordcount --sequence "$i".fa -wordsize="$KMER_LENGTH" -outfile "$i".wordcount &> /dev/null
 
     # get only kmers appearing once within that exon
@@ -224,11 +256,40 @@ mkdir -p mapping
 # we grep NH=1 to get unique mappers (as defined by STAR)
 # exon_coord=chr5:142889256-142889696-;ENSMUST00000167721.8:5_kmer_45
 
+# ## old version, nonbed
+# samtools view mapping/kmers_"$KMER_LENGTH"Aligned.out.bam  | \
+#     grep -w 'NH:i:1' | \
+#     awk '{OFS=FS="\t"; print $1,$3,$4,$6,$12,$13,$14,$15,$16,$17,$10}' | \
+#     pigz -p $NTHREADS --stdout > mapping/kmers_"$KMER_LENGTH".uniques.gz
+
+
+## convert2bed (bedops) alt start for adding further annotation ~~~~~~~~~~~~~~~~~~ 10.09.2021
+
+# check if the [start, end] SAM is effectively transformed to
+##   sorted, 0-based, half-open [start-1, end) BED
+## during the process, we remove any kmer that was duplicated (as input, e.g. kmers
+##   from different genes being identical)
+# samtools view mapping/kmers_"$KMER_LENGTH"Aligned.out.bam  | \
+#     grep -w 'NH:i:1' | \
+#     awk '{a[$10]++;b[$10]=$0}END{for(x in a)if(a[x]==1)print b[x]}' | \
+#     convert2bed --input=sam - | pigz -p $NTHREADS --stdout > \
+#                                      mapping/kmers_"$KMER_LENGTH"_uniques.bed.gz
+
 samtools view mapping/kmers_"$KMER_LENGTH"Aligned.out.bam  | \
     grep -w 'NH:i:1' | \
-    awk '{OFS=FS="\t"; print $1,$3,$4,$6,$12,$13,$14,$15,$16,$17,$10}' | \
-    pigz -p $NTHREADS --stdout > mapping/kmers_"$KMER_LENGTH".uniques.gz
+    convert2bed --input=sam - | pigz -p $NTHREADS --stdout > \
+                                     mapping/kmers_"$KMER_LENGTH"_uniques.bed.gz
 
+# count the number of SNVs within each interval (kmer); this will be a measure of
+#  (lack of) conservation
+bedtools coverage -a mapping/kmers_"$KMER_LENGTH"_uniques.bed.gz \
+         -b variation_sorted.bed.gz \
+         -sorted \
+         -counts | pigz -p "$NTHREADS" --stdout > mapping/kmers_"$KMER_LENGTH"_uniques_var.bed.gz
+
+mv -f mapping/kmers_"$KMER_LENGTH"_uniques_var.bed.gz mapping/kmers_"$KMER_LENGTH"_uniques.bed.gz
+                        
+## sam2bed alt end ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # postprocess in R, by chromosome
 
@@ -262,3 +323,7 @@ N=$NTHREADS
 gzip probes/*tsv
 
 # knit the 'final' report
+R -e 'rmarkdown::render("/home/imallona/src/ebrunner_spectral/01_proof_of_concept/spectral_poc.Rmd")'
+
+# generate files for IGV/UCSC genome browser.
+# Add assert that the coordinates provided match the probe seq

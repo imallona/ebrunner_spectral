@@ -13,7 +13,7 @@ suppressPackageStartupMessages({
     ## library('rDNAse')
     library('msu')             # for Shannon's entropy
     library('data.table')
-    library('Matrix')
+    ## library('Matrix')
     ## library('foreach')
     ## library('doParallel')
 })
@@ -21,8 +21,8 @@ suppressPackageStartupMessages({
 WD <- '/home/imallona/giulia'
 KMER_LENGTH <- 25
 NTHREADS <- 10
-NUM_PROBES <- 3   ## probes per gene
-MAPPING <- file.path(WD, 'mapping', sprintf('kmers_%s.uniques.gz', KMER_LENGTH))
+NUM_PROBES <- 10   ## probes per gene
+MAPPING <- file.path(WD, 'mapping', sprintf('kmers_%s_uniques.bed.gz', KMER_LENGTH))
 FILTERED_BED <- file.path(WD, 'safe_exons.bed')
 FEATURES <- file.path('/home/imallona', 'src',
                       'ebrunner_spectral', '01_proof_of_concept', 'data', 'tf_mouse_gmoro.txt')
@@ -33,7 +33,8 @@ args <- commandArgs(trailingOnly = TRUE)
 print(args)
 
 if (length(args) != 2) {
-  stop("Two argument must be supplied: chromosome (all for no filtering) and file output name", call.=FALSE)
+    stop("Two argument must be supplied: chromosome (all for no filtering) and file output name",
+         call.=FALSE)
 } 
 
 chrom <- args[1]
@@ -95,9 +96,15 @@ if (chrom == 'all') {
     d <- as.data.frame(data.table::fread(grepsys, nrows = ifelse(DOWNSAMPLE, yes = 5e5, no = Inf)))
 }
 
-colnames(d) <- c('read', 'chr', 'start', 'match', 'NH', 'HI', 'NM', 'MD', 'AS', 'nM', 'kmer')
+## colnames(d) <- c('read', 'chr', 'start', 'match', 'NH', 'HI', 'NM', 'MD', 'AS', 'nM', 'kmer')
+colnames(d) <- c('chr', 'start', 'end', 'read', 'V5', 'strand', 'V7', 'match',
+                 'V9', 'V10', 'V11', 'kmer', 'V13',
+                 'NH', 'HI', 'NM', 'MD', 'AS', 'nM', 'num_snps')
 
-for (item in setdiff(colnames(d), c('read', 'chr', 'start', 'match', 'kmer'))){
+d <- d[,grep('^V', colnames(d), invert = TRUE)]
+
+for (item in setdiff(colnames(d), c('read', 'chr', 'start', 'end', 'strand', 'match',
+                                    'kmer', 'num_snps'))){
     d[,item] <- as.numeric(gsub(paste0(item, ':i:|MD:Z:'), '', d[,item]))
 }
 
@@ -119,7 +126,7 @@ d <- cbind(d,
 
 ## use the overlap function here TODO
 d$simulation_locus_match <- FALSE
-d$simulation_locus_match <- d$sim_chr == d$chr & (abs(d$start - d$sim_start) < 1e6)
+d$simulation_locus_match <- d$sim_chr == d$chr & (abs(d$start - d$sim_start) < 1e5)
 stopifnot(all(d$simulation_locus_match))
 print('Check passed')
 
@@ -144,7 +151,13 @@ d <- d[,setdiff(colnames(d), c('gtf_id', 'read'))]
 
 ## we assume they share the chromosome, so we take into account just the start
 d <- d[order(d$gene_id, d$start),]
+
+## table(d$strand, d$sim_strand)
+## table(d$strand, d$gtf_strand)
+
 fd <- list()
+
+message("check the 1-offset, closed intervals in coord start /end definitions; now with sam2bed")
 
 for (gene_id in unique(d$gene_id)) {
     curr <- d[d$gene_id == gene_id,]
@@ -158,18 +171,26 @@ for (gene_id in unique(d$gene_id)) {
         strand <- curr[curr$kmer == kmer, 'gtf_strand'][1]
         chr <- curr[curr$kmer == kmer, 'chr'][1]
         start <- curr[curr$kmer == kmer, 'start'][1]
-        
-        ## todo get the 1-offset right
-        end <- ifelse(strand == '+',
-                      yes = start + KMER_LENGTH,
-                      no = start - KMER_LENGTH)
+        end <- curr[curr$kmer == kmer, 'end'][1]
+        num_snps <- curr[curr$kmer == kmer, 'num_snps'][1]
+
+        ## if (strand == '+') {
+        ##     start <- curr[curr$kmer == kmer, 'start'][1]
+        ##     end <- start + KMER_LENGTH
+        ## } else if (strand == '-') {
+        ##     end <- curr[curr$kmer == kmer, 'start'][1]
+        ##     start <- curr[curr$kmer == kmer, 'start'][1] - KMER_LENGTH
+        ## } else {
+        ##     stop('malformed strand')
+        ## }
 
         ## overlaps <- abs(curr$start - fd[[gene_id]][[i]]) <---- how to do this efficiently
         fd[[gene_id]][[kmer]] <- setNames(c(gene_id, kmer, num_transcripts, transcripts, exons,
-                                             cigars, chr, start, end, strand),
+                                             cigars, chr, start, end, strand, num_snps),
                                           c('gene_id', 'kmer', 'num_transcripts', 'transcripts',
                                             'exons',
-                                            'cigars', 'chr', 'start', 'end', 'strand'))
+                                            'cigars', 'chr', 'start', 'end', 'strand',
+                                            'num_snps'))
     }
     ## cat('.')
 }
@@ -189,8 +210,8 @@ for (gene_id in names(fd)) {
     ## cand-idates
     cand <- do.call(rbind.data.frame, fd[[gene_id]])
     colnames(cand) <- c('gene_id', 'kmer', 'num_transcripts', 'transcripts', 'exons',
-                        'cigars', 'chr', 'start', 'end', 'strand')
-    nums <- c('num_transcripts', 'start', 'end')
+                        'cigars', 'chr', 'start', 'end', 'strand', 'num_snps')
+    nums <- c('num_transcripts', 'start', 'end', 'num_snps')
     cand[,nums] <- lapply(cand[,nums], function(x) as.numeric(x))
 
     ## sequence complexity, Shannon's entropy on sliding 2-mers
@@ -246,6 +267,11 @@ for (gene_id in names(fd)) {
 ## 
 ## If only one transcript present, all kmers are given `seldom_tx_score = 1`.
 
+recursive_sum <- function(x) {
+    if (x == 1)    return (1)
+    else           return (x + recursive_sum(x-1))
+}
+
 
 for (gene_id in names(fd)) {
     if (nrow(fd[[gene_id]]) > 0) {
@@ -260,7 +286,7 @@ for (gene_id in names(fd)) {
             ft$rank <- rank(ft$Freq)
             for (i in 1:nrow(fd[[gene_id]])) {
                 checked <- unlist(strsplit(fd[[gene_id]]$transcripts[i], split = ';'))
-                fd[[gene_id]]$seldom_tx_score[i] <- sum(ft[checked,'rank'])
+                fd[[gene_id]]$seldom_tx_score[i] <- sum(ft[checked,'rank'])/recursive_sum(fd[[gene_id]]$num_transcripts[i])
             }
         }
     }
@@ -269,16 +295,9 @@ for (gene_id in names(fd)) {
 ## 
 ## Get an aggregated score, sort by score, pick the top one and then browse the list downwards picking probes that don't overlap any of the above, till the required num probes per gene is full.filled
 
-## Current score favours (linearly) number of transcripts covered, seldom_tx_score, Shannon entropy, having a GC content inr ange, and lacking homopolymers.
+## Mind the normalization of the seldom_tx_score by recursive sum
 
 
-## (1)    fd[[gene_id]]$num_transcripts +
-## (2)    fd[[gene_id]]$seldom_tx_score +
-## (3)    fd[[gene_id]]$shannon_entropy +
-## (4)    as.numeric(fd[[gene_id]]$valid_gc) + 
-## (5)    (as.numeric(fd[[gene_id]]$homopolymer) * -1)
-
-print('checkpoint')
 
 for (gene_id in names(fd)) {
     fd[[gene_id]]$picked <- FALSE
@@ -289,7 +308,8 @@ for (gene_id in names(fd)) {
         fd[[gene_id]]$seldom_tx_score +
         fd[[gene_id]]$shannon_entropy +
         as.numeric(fd[[gene_id]]$valid_gc) +        
-        (as.numeric(fd[[gene_id]]$homopolymer) * -1)
+        (as.numeric(fd[[gene_id]]$homopolymer) * -1) +
+        (fd[[gene_id]]$num_snps * -1)
 
     fd[[gene_id]] <- fd[[gene_id]][order(fd[[gene_id]]$score, decreasing = TRUE),]
 
@@ -402,82 +422,11 @@ for (gene_id in names(fd)) {
 fd <- do.call(rbind.data.frame,
                   lapply(fd, function(x) return(x[x$picked,])))
 
-## tmp <- merge(fd, known, by = 'gene_id', all.x = TRUE)
-
-## tmp <- tmp[order(tmp$num_coverable_transcripts),]
-
-
-## par(mfrow = c(2,2))
-## plot(x = 1:nrow(tmp),
-##      y = tmp$num_coverable_transcripts,
-##      pch = 3,
-##      ylim = c(0, max(tmp$num_coverable_transcripts)),
-##      xlab = 'gene (sorted by num transcripts)',
-##      ylab = 'num target transcripts per gene')
-##      col = 'black')
-
-## plot(x = 1:nrow(tmp),
-##      y = tmp$num_transcripts,
-##      ylim = c(0, max(tmp$num_coverable_transcripts)),
-##      ylab = 'num covered transcripts per gene',
-##      xlab = 'gene (sorted by num transcripts)',
-##      col = 'darkred',
-##      pch = 19,
-##      type = 'b')
-
-## ## points(x = 1:nrow(tmp),
-## ##        y = tmp$num_transcripts,
-## ##        col = 'blue',
-## ##        pch = 6,
-## ##        type = 'b')
-
-## plot(x = 1:nrow(tmp),
-##      y = tmp$num_coverable_transcripts,
-##      ylim = c(min(tmp$num_transcripts - tmp$num_coverable_transcripts),
-##               max(tmp$num_coverable_transcripts)),
-##      pch = 3,
-##      xlab = 'gene (sorted by num transcripts)',
-##      ylab = 'num target transcripts per gene',
-##      col = 'black')
-
-## points(x = 1:nrow(tmp),
-##      y = tmp$num_transcripts - tmp$num_coverable_transcripts,
-##      ylim = c(min(tmp$num_transcripts - tmp$num_coverable_transcripts),
-##               max(tmp$num_coverable_transcripts)),
-##      ylab = 'num covered transcripts per gene',
-##      xlab = 'gene (sorted by num transcripts)',
-##      col = 'darkblue',
-##      pch = 19,
-##      type = 'b')
-
-## legend('topleft', legend = c("num target transcripts",
-##                              "num covered transcripts - num target transcripts"),
-##        col=c("black", "darkblue"), pch = c(3, 19),
-##        cex = 0.8)
-
-
-
-## plot(x = jitter(tmp$num_transcripts, 1),
-##      y = jitter(tmp$num_coverable_transcripts, 1),
-##      pch = 19,
-##      ylab = 'num target transcripts per gene (jitter)',
-##      xlab = 'num covered transcripts per gene (jitter)',
-##      col = rgb(0, 0, 255, max = 255, alpha = 125))
-
-
-## Average number probes per gene... it's three for all of them (?).
-
-
-## summary(aggregate(tmp$kmer,
-##                   by=  list(tmp$gene_id),
-##                   FUN = function(x) length(x)))
-
-
-## 
-## # Exports
-
-
 ## saveRDS(file = sprintf('fd.rds'), fd)
+## to avoid sci notation (1e6), we cast ints to strings
+fd$start <- sprintf('%.f', fd$start)
+fd$end <- sprintf('%.f', fd$end)
+
 write.table(file = out,
             x = fd, row.names = FALSE, col.names = TRUE, quote = FALSE, sep = "\t")
 
