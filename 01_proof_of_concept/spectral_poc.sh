@@ -269,9 +269,14 @@ mkdir -p mapping
 ##   sorted, 0-based, half-open [start-1, end) BED
 ## during the process, we remove any kmer that was duplicated (as input, e.g. kmers
 ##   from different genes being identical)
+# samtools view mapping/kmers_"$KMER_LENGTH"Aligned.out.bam  | \
+#     grep -w 'NH:i:1' | \
+#     awk '{a[$10]++;b[$10]=$0}END{for(x in a)if(a[x]==1)print b[x]}' | \
+#     convert2bed --input=sam - | pigz -p $NTHREADS --stdout > \
+#                                      mapping/kmers_"$KMER_LENGTH"_uniques.bed.gz
+
 samtools view mapping/kmers_"$KMER_LENGTH"Aligned.out.bam  | \
     grep -w 'NH:i:1' | \
-    awk '{a[$10]++;b[$10]=$0}END{for(x in a)if(a[x]==1)print b[x]}' | \
     convert2bed --input=sam - | pigz -p $NTHREADS --stdout > \
                                      mapping/kmers_"$KMER_LENGTH"_uniques.bed.gz
 

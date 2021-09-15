@@ -21,7 +21,7 @@ suppressPackageStartupMessages({
 WD <- '/home/imallona/giulia'
 KMER_LENGTH <- 25
 NTHREADS <- 10
-NUM_PROBES <- 3   ## probes per gene
+NUM_PROBES <- 10   ## probes per gene
 MAPPING <- file.path(WD, 'mapping', sprintf('kmers_%s_uniques.bed.gz', KMER_LENGTH))
 FILTERED_BED <- file.path(WD, 'safe_exons.bed')
 FEATURES <- file.path('/home/imallona', 'src',
@@ -157,7 +157,7 @@ d <- d[order(d$gene_id, d$start),]
 
 fd <- list()
 
-message("check the 1-offset, closed intervals in coord start /end definitions; now with sam2bed')
+message("check the 1-offset, closed intervals in coord start /end definitions; now with sam2bed")
 
 for (gene_id in unique(d$gene_id)) {
     curr <- d[d$gene_id == gene_id,]
@@ -267,6 +267,11 @@ for (gene_id in names(fd)) {
 ## 
 ## If only one transcript present, all kmers are given `seldom_tx_score = 1`.
 
+recursive_sum <- function(x) {
+    if (x == 1)    return (1)
+    else           return (x + recursive_sum(x-1))
+}
+
 
 for (gene_id in names(fd)) {
     if (nrow(fd[[gene_id]]) > 0) {
@@ -281,7 +286,7 @@ for (gene_id in names(fd)) {
             ft$rank <- rank(ft$Freq)
             for (i in 1:nrow(fd[[gene_id]])) {
                 checked <- unlist(strsplit(fd[[gene_id]]$transcripts[i], split = ';'))
-                fd[[gene_id]]$seldom_tx_score[i] <- sum(ft[checked,'rank'])
+                fd[[gene_id]]$seldom_tx_score[i] <- sum(ft[checked,'rank'])/recursive_sum(fd[[gene_id]]$num_transcripts[i])
             }
         }
     }
@@ -292,10 +297,6 @@ for (gene_id in names(fd)) {
 
 ## Mind the normalization of the seldom_tx_score by recursive sum
 
-recursive_sum <- function(x) {
-    if (x == 1)    return (1)
-    else           return (x + recursive_sum(x-1))
-}
 
 
 for (gene_id in names(fd)) {
@@ -304,7 +305,7 @@ for (gene_id in names(fd)) {
     fd[[gene_id]]$Tm_Wallace <- NA
     
     fd[[gene_id]]$score <- fd[[gene_id]]$num_transcripts +
-        (fd[[gene_id]]$seldom_tx_score/recursive_sum(fd[[gene_id]]$num_transcripts)) +
+        fd[[gene_id]]$seldom_tx_score +
         fd[[gene_id]]$shannon_entropy +
         as.numeric(fd[[gene_id]]$valid_gc) +        
         (as.numeric(fd[[gene_id]]$homopolymer) * -1) +

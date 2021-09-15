@@ -7,7 +7,7 @@ WD=/home/imallona/giulia
 # filtered exons
 EXONS="$WD"/safe_exons.bed
 
-MASK="$WD"/transcripts_300bp_up.bed
+# MASK="$WD"/transcripts_300bp_up.bed
 
 LONGNON="$WD"/noncoding_transcripts.bed
 
@@ -27,7 +27,7 @@ track name=spectral_probes description="Spectral PoC: probes (25nt, unique)" vis
 zcat header.gz "$WD"/tracks/probes_track.bed.gz | gzip -c > "$WD"/tracks/probes_track.bed.gz.tmp
 mv -f "$WD"/tracks/probes_track.bed.gz.tmp "$WD"/tracks/probes_track.bed.gz
 
-## tracks with 'target' exons
+## track with 'target' exons
 
 awk '{ 
        OFS=FS="\t"; 
@@ -40,7 +40,21 @@ track name=spectral_exons description="Spectral PoC: target exons" color=0,0,255
 zcat header.gz "$WD"/tracks/exons_track.bed.gz | gzip -c > "$WD"/tracks/exons_track.bed.gz.tmp
 mv -f "$WD"/tracks/exons_track.bed.gz.tmp "$WD"/tracks/exons_track.bed.gz
 
+# track with variants in target exons
+
+bedtools intersect -b "$EXONS" \
+         -a variation_sorted.bed.gz | pigz -p "$NTHREADS" --stdout > tracks/variants_in_exons.bed.gz
+
+echo 'browser position chr6:52142645-52304303
+track name=snvs_in_spectral_exons description="Spectral PoC: known SNVs" color=255,0,0 visibility=1' | gzip -c > header.gz
+
+zcat header.gz  "$WD"/tracks/variants_in_exons.bed.gz | gzip -c > "$WD"/tracks/variants_in_exons.bed.gz.tmp
+mv -f "$WD"/tracks/variants_in_exons.bed.gz.tmp "$WD"/tracks/variants_in_exons.bed.gz
+
+rm header.gz
+
 ## track with the mask (areas within the 300 bp of each tx, probes were not designed)
+## we're not doing this anymore
 
 # awk '{ 
 #        OFS=FS="\t"; 
@@ -57,13 +71,17 @@ mv -f "$WD"/tracks/exons_track.bed.gz.tmp "$WD"/tracks/exons_track.bed.gz
 
 ## track with the longnoncoding mask (for lncs on the same strand as the target genes)
 
+# awk '{ 
+#        OFS=FS="\t"; 
+#        print $1,$2,$3,".","0",$6
+#       }' "$LONGNON" | gzip -c > "$WD"/tracks/lnc_track.bed.gz
 awk '{ 
        OFS=FS="\t"; 
-       print $1,$2,$3,".","0",$6
+       print $1,$2,$3,$4,"0",$6
       }' "$LONGNON" | gzip -c > "$WD"/tracks/lnc_track.bed.gz
 
 echo 'browser position chr6:52142645-52304303
-track name=spectral_lnc_mask description="Spectral PoC: mask long noncoding RNAs" color=255,0,0 visibility=1' | gzip -c > header.gz
+track name=spectral_lnc_mask description="Spectral PoC: mask long noncoding RNAs" color=255,0,255 visibility=1' | gzip -c > header.gz
 
 zcat header.gz "$WD"/tracks/lnc_track.bed.gz | gzip -c > "$WD"/tracks/lnc.bed.gz.tmp
 mv -f "$WD"/tracks/lnc.bed.gz.tmp "$WD"/tracks/lnc_track.bed.gz
@@ -72,10 +90,11 @@ rm header.gz
 
 rsync -avt "$WD"/tracks/*gz imlspenticton:/var/www/imallona
 
-echo 'http://imlspenticton.uzh.ch/imallona/mask_track.bed.gz
+echo 'http://imlspenticton.uzh.ch/imallona/lnc_track.bed.gz
 http://imlspenticton.uzh.ch/imallona/exons_track.bed.gz
-http://imlspenticton.uzh.ch/imallona/probes_track.bed.gz' > "$WD"/tracks/spectral_poc.txt
+http://imlspenticton.uzh.ch/imallona/probes_track.bed.gz
+http://imlspenticton.uzh.ch/imallona/variants_in_exons.bed.gz' > "$WD"/tracks/spectral_poc_longnon.txt
 
-rsync -avt "$WD"/tracks/spectral_poc.txt imlspenticton:/var/www/imallona
+rsync -avt "$WD"/tracks/spectral_poc_longnon.txt imlspenticton:/var/www/imallona
 
-# http://genome.ucsc.edu/cgi-bin/hgTracks?genome=mm39&hgt.customText=http://imlspenticton.uzh.ch/imallona/spectral_poc.txt
+# http://genome.ucsc.edu/cgi-bin/hgTracks?genome=mm39&hgt.customText=http://imlspenticton.uzh.ch/imallona/spectral_poc_longnon.txt
