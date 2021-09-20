@@ -22,7 +22,7 @@ WD <- '/home/imallona/giulia'
 KMER_LENGTH <- 25
 NTHREADS <- 10
 NUM_PROBES <- 10   ## probes per gene
-MAPPING <- file.path(WD, 'mapping', sprintf('kmers_%s_uniques.bed.gz', KMER_LENGTH))
+## MAPPING <- file.path(WD, 'mapping', sprintf('kmers_%s_uniques.bed.gz', KMER_LENGTH))
 FILTERED_BED <- file.path(WD, 'safe_exons.bed')
 FEATURES <- file.path('/home/imallona', 'src',
                       'ebrunner_spectral', '01_proof_of_concept', 'data', 'tf_mouse_gmoro.txt')
@@ -32,13 +32,14 @@ DOWNSAMPLE <- FALSE
 args <- commandArgs(trailingOnly = TRUE)
 print(args)
 
-if (length(args) != 2) {
-    stop("Two argument must be supplied: chromosome (all for no filtering) and file output name",
+if (length(args) != 3) {
+    stop("Two argument must be supplied: input mapping (bed) file, chromosome (all for no filtering) and file output name",
          call.=FALSE)
 } 
 
-chrom <- args[1]
-out <- args[2]
+mapping_input <- args[1]
+chrom <- args[2]
+out <- args[3]
 ## chrom <- 'chr19'
 
 ## TODO test properly, for 0/1 starts etc
@@ -90,10 +91,21 @@ valid_melting <- function(x) {
 }
 
 if (chrom == 'all') {
-    d <- as.data.frame(data.table::fread(MAPPING, nrows = ifelse(DOWNSAMPLE, yes = 5e5, no = Inf)))
+    d <- as.data.frame(data.table::fread(mapping_input, nrows = ifelse(DOWNSAMPLE, yes = 5e5, no = Inf)))
 } else {
-    grepsys <- sprintf('zcat %s | LC_ALL=C fgrep -w %s', MAPPING, chrom)
+    grepsys <- sprintf('zcat %s | LC_ALL=C fgrep -w %s', mapping_input, chrom)
     d <- as.data.frame(data.table::fread(grepsys, nrows = ifelse(DOWNSAMPLE, yes = 5e5, no = Inf)))
+    ## d <- read.table(pipe(grepsys), nrows = ifelse(DOWNSAMPLE, yes = 5e5, no = Inf))
+
+    ## zz <- gzfile(mapping_input)
+    ## tmp <- grep(sprintf('^', chrom, '\t'), readLines(zz))
+    ## d <- read.table(textConnection(tmp))
+    ## rm(tmp)
+    ## close(zz)
+
+    ## very unefficient!
+    ## d <- as.data.frame(data.table::fread(mapping_input, nrows = ifelse(DOWNSAMPLE, yes = 5e5, no = Inf)))
+    ## d <- d[d[,1] == chrom,]
 }
 
 ## colnames(d) <- c('read', 'chr', 'start', 'match', 'NH', 'HI', 'NM', 'MD', 'AS', 'nM', 'kmer')
@@ -126,9 +138,14 @@ d <- cbind(d,
 
 ## use the overlap function here TODO
 d$simulation_locus_match <- FALSE
-d$simulation_locus_match <- d$sim_chr == d$chr & (abs(d$start - d$sim_start) < 1e5)
-stopifnot(all(d$simulation_locus_match))
-print('Check passed')
+d$simulation_locus_match <- d$sim_chr == d$chr & (abs(d$start - d$sim_start) < 1e6)
+
+## tryCatch(stopifnot(all(d$simulation_locus_match)),
+##          error = function(x) stop(sprintf('error check chrom %s', chrom)))
+
+d <- d[d$simulation_locus_match,]
+
+## print('Check passed')
 
 ## Then, annotate with the gene, transcript and exon names/coordinates,
 ## to check for even spacing, and feature covering.

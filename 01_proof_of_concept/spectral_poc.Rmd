@@ -46,8 +46,10 @@ KMER_LENGTH <- 25
 NTHREADS <- 10
 NUM_PROBES <- 3   ## probes per gene
 OUTPUTS <- file.path(WD, 'probes')
-FEATURES <- file.path('/home/imallona', 'src',
-                      'ebrunner_spectral', '01_proof_of_concept', 'data', 'tf_mouse_gmoro.txt')
+## FEATURES <- file.path('/home/imallona', 'src',
+##                       'ebrunner_spectral', '01_proof_of_concept', 'data', 'tf_mouse_gmoro.txt')
+FEATURES <- file.path('/home/imallona', 'giulia',
+                      'whole_genome')
 ```
 
 This PoC Spectral probe design runs on this gene list:
@@ -74,7 +76,7 @@ TODO list
 - Parallelize (by gene) DONE by chromosome (?)
 ```
 
-Design
+Design (old)
 
 <img src="figures/spectral_poc.png" alt="shell" width="700"/>
 
@@ -251,7 +253,7 @@ Ratio designed/intended:
 length(unique(fd$gene_id))/num_genes
 ```
 
-Per gene: num transcripts in GTF *after* filtering out the 300 bp per transcript, num transcripts for which kmers were designed (coverable due to the 300 bp limit), number of transcripts covered by probes.
+Per gene: num transcripts.
 
 ```{r}
 known <- aggregate(gtf$transcript_id,

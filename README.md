@@ -11,6 +11,8 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vestibulum tincidunt so
 Developing at branch `develop` with occasional merges to `master`.
 
 - `01_proof_of_concept`: PoC (bash and Rmd)
+- `02_browser`: genome browser trakcs generator (bash)
+- `03_zumis`: utils to run zUMIs on the data
 
 # Started
 

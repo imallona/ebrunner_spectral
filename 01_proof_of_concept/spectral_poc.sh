@@ -14,7 +14,8 @@ WD=/home/imallona/giulia                   # working dir, in portmac
 GTF=gencode.vM27.basic.annotation.gff3     # genes gtf
 LONGNON_GTF=gencode.vM27.long_noncoding_RNAs.gff3
 ## genesymbols/ensg identifers of targets
-FEATURES=/home/imallona/src/ebrunner_spectral/01_proof_of_concept/data/tf_mouse_gmoro.txt 
+# FEATURES=/home/imallona/src/ebrunner_spectral/01_proof_of_concept/data/tf_mouse_gmoro.txt
+FEATURES='whole_genome'
 GENOME=GRCm39.primary_assembly.genome.fa   # genome gtf (not transcriptome)
 NTHREADS=5                                 # number of cores
 KMER_LENGTH=25                             # kmer length
@@ -75,6 +76,12 @@ fi
 # Dmkn
 # EOF
 
+## get feature list (if whole genome)
+if [ $FEATURES = 'whole_genome' ]; then
+    # zcat "$GTF".gz | perl -n -e'/.*gene_id=(.*)\;transcript_id.*/ && print $1'
+    zcat "$GTF".gz | perl -n -e'/.*gene_id=(.*)\;transcript_id.*/ && printf "%s\n", $1;' | \
+        sort | uniq > "$WD"/"$FEATURES"
+fi
 
 # Check how many genes of interest are there
 echo "Designing probes for: `wc -l $FEATURES` genes"
@@ -316,7 +323,15 @@ N=$NTHREADS
         chrom="chr""$chrom"
 
         ((i=i%N)); ((i++==0)) && wait
-        Rscript "$POSTPROC_RSCRIPT" "$chrom" probes/spectral_poc_"$chrom".tsv &
+
+        { zcat mapping/kmers_"$KMER_LENGTH"_uniques.bed.gz | \
+              grep -w "$chrom" | \
+              gzip -c > curr_"$chrom".bed.gz ;
+          Rscript "$POSTPROC_RSCRIPT" curr_"$chrom".bed.gz \
+                  "$chrom" \
+                  probes/spectral_poc_"$chrom".tsv ;
+          rm curr_"$chrom".bed.gz ;
+        } &
     done
 )
 
