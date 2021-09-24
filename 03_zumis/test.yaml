@@ -11,8 +11,8 @@ sequence_files:
 reference:
   STAR_index: /home/ubuntu/indices/GRCm38_gencode_M25
   GTF_file: /home/ubuntu/indices/gencode.vM25.annotation.gtf.gz
-  additional_STAR_params: ''
-  additional_files: ~
+  additional_STAR_params: null ## takes cDNA length -1 by default
+  additional_files: null
 out_dir: /home/ubuntu/test_zumis
 num_threads: 8
 mem_limit: 100
@@ -41,3 +41,4 @@ Rscript_exec: Rscript
 STAR_exec: STAR
 pigz_exec: pigz
 samtools_exec: samtools
+read_layout: SE

@@ -1938,7 +1938,8 @@ STAR --runThreadN "$NTHREADS" \
         --runMode genomeGenerate \
         --genomeDir "$ID" \
         --genomeFastaFiles "$FA" \
-        --sjdbGTFfile "$GTF"
+        --sjdbGTFfile "$GTF" \
+        --sjdbOverhang 61
 
 pigz -p "$NTHREADS" "$GENOME"
 pigz -p "$NTHREADS" "$GTF"
