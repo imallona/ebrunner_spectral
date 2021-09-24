@@ -3,7 +3,7 @@ Steps:
 1. Run the indexing for mouse/genome/alien
 2. Edit the yaml file, i.e. as `test.yaml` (this example has no BC whitelisting)
 3. Uncompress the relevant GTF
-3. Run, e.g. with the proper binaries within the $PATH (no conda), with `./zUMIs.sh  -y test.yaml -d /home/ubuntu/sandbox/zUMIs/ 2>&1 | tee -a logs/test_all.log`
+3. Run, e.g. with the proper binaries within the $PATH (no conda), with `./zUMIs.sh  -y test.yaml -d /home/ubuntu/sandbox/zUMIs/ 2>&1 | tee -a logs/test_R4.log`
 
 
 Tips to compile R/install stuff
@@ -57,4 +57,25 @@ make
 make install prefix=~/soft/R/R-4.1.1
 
 ln -s ~/soft/R/R-4.1.1/bin/R ~/soft/R/R
+
+```
+
+And these
+
+```
+
+cran_pcks <- c("inflection","yaml","shiny","shinythemes","shinyBS","ggplot2","mclust",
+   "dplyr","cowplot","Matrix","BiocManager","devtools","stringdist","data.table",
+       "stringr","extraDistr")
+install.packages(cran_pcks)
+bioc_pcks <- c("GenomicRanges","GenomicFeatures","GenomicAlignments","AnnotationDbi",
+     "GenomeInfoDb","plyranges")
+BiocManager::install(bioc_pcks)
+devtools::install_github('VPetukhov/ggrastr')
+
+install.packages("devtools")
+# Use devtools to install hdf5r and loomR from GitHub
+devtools::install_github(repo = "hhoeflin/hdf5r")
+devtools::install_github(repo = "mojaveazure/loomR", ref = "develop")
+
 ```
