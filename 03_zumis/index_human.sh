@@ -8,7 +8,7 @@
 FA=Homo_sapiens.GRCh38.dna.primary_assembly.fa
 GTF=gencode.v38.basic.annotation.gtf
 NTHREADS=20
-ID=GRCh38_gencode_M38
+ID=GRCh38_gencode_38
 
 mkdir -p "$ID"
 
