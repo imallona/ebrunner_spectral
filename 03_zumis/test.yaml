@@ -1,0 +1,44 @@
+project: test
+sequence_files:
+  file1:
+    name: /home/ubuntu/data/20210923.B-o26015_1_3-SPECTRAL_unmod_downsampled_R1.fastq.gz
+    base_definition:
+    - BC(1-52)
+    - UMI(53-60)
+  file2:
+    name: /home/ubuntu/data/20210923.B-o26015_1_3-SPECTRAL_unmod_downsampled_R2.fastq.gz
+    base_definition: cDNA(1-62)
+reference:
+  STAR_index: /home/ubuntu/indices/GRCm38_gencode_M25
+  GTF_file: /home/ubuntu/indices/gencode.vM25.annotation.gtf.gz
+  additional_STAR_params: null ## takes cDNA length -1 by default
+  additional_files: null
+out_dir: /home/ubuntu/test_zumis
+num_threads: 8
+mem_limit: 100
+filter_cutoffs:
+  BC_filter:
+    num_bases: 1
+    phred: 20
+  UMI_filter:
+    num_bases: 1
+    phred: 20
+barcodes:
+  automatic: yes
+  BarcodeBinning: 0
+  nReadsperCell: 100
+counting_opts:
+  introns: yes
+  downsampling: '0'
+  strand: 0
+  Ham_Dist: 0
+  velocyto: no
+  primaryHit: yes
+  twoPass: yes
+make_stats: yes
+which_Stage: Filtering
+Rscript_exec: Rscript
+STAR_exec: STAR
+pigz_exec: pigz
+samtools_exec: samtools
+read_layout: SE

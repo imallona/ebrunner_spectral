@@ -10,7 +10,13 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vestibulum tincidunt so
 
 Developing at branch `develop` with occasional merges to `master`.
 
-- `01_proof_of_concept`: PoC (bash and Rmd)
+- `01_proof_of_concept`: PoC for probe design (bash and Rmd)
+- `02_browser`: genome browser trakcs generator / probe design (bash)
+- `03_zumis`: utils to run zUMIs on the data
+
+# Notes/reminders
+
+Index genomes with cDNA readlength -1 `--sjdbOverhang`, as required by zUMIs mapping.
 
 # Started
 
