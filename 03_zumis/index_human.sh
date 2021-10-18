@@ -10,7 +10,7 @@ GTF=gencode.v38.basic.annotation.gtf
 NTHREADS=20
 ID=GRCh38_gencode_38
 
-mkdir -p ~/indices
+mkdir -p ~/giulia/indices
 cd "$_"
 
 cd ~/indices

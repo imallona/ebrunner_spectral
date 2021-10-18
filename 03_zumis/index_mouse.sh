@@ -13,7 +13,7 @@ ID=GRCm38_gencode_M25
 wget http://ftp.ensembl.org/pub/release-102/fasta/mus_musculus/dna/"$FA".gz
 wget http://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M25/"$GTF".gz
 
-mkdir -p ~/indices
+mkdir -p ~/giulia/indices
 cd "$_"
 
 ## installs

@@ -5,7 +5,7 @@
 ## Izaskun Mallona
 ## 20 Sept 2021
 
-cd ~/indices
+cd ~/giulia/indices
 
 FA=alien.fa
 GTF=alien.gtf
