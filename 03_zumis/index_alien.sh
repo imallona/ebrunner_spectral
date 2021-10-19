@@ -7,7 +7,7 @@
 
 cd ~/giulia/indices
 
-FA=alien.fa
+GENOME=alien.fa
 GTF=alien.gtf
 NTHREADS=10
 ID=alien
@@ -1930,7 +1930,7 @@ EOF
 
 
 ## installs
-cd ~/indices
+cd ~/giulia/indices
   
 mkdir -p "$ID"
 
