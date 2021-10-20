@@ -12,7 +12,7 @@ GTF=alien.gtf
 NTHREADS=10
 ID=alien
 
-cat << EOF > "$FA"
+cat << EOF > "$GENOME"
 >egfp
 ATGGTGAGCAAGGGCGAGGAGCTGTTCACCGGGGTGGTGCCCATCCTGGTCGAGCTGGACGGCGACGTAA
 ACGGCCACAAGTTCAGCGTGTCCGGCGAGGGCGAGGGCGATGCCACCTACGGCAAGCTGACCCTGAAGTT
@@ -1937,9 +1937,10 @@ mkdir -p "$ID"
 $STAR --runThreadN "$NTHREADS" \
         --runMode genomeGenerate \
         --genomeDir "$ID" \
-        --genomeFastaFiles "$FA" \
+        --genomeFastaFiles "$GENOME" \
         --sjdbGTFfile "$GTF" \
-        --sjdbOverhang 61
+        --sjdbOverhang 59 \
+        --genomeSAindexNbases 7
 
 pigz -p "$NTHREADS" "$GENOME"
 pigz -p "$NTHREADS" "$GTF"

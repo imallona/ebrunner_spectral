@@ -31,7 +31,7 @@ $STAR --runThreadN "$NTHREADS" \
         --genomeDir "$ID" \
         --genomeFastaFiles "$FA" \
         --sjdbGTFfile "$GTF" \
-        --sjdbOverhang 61
+        --sjdbOverhang 59 # 61
 
 pigz -p "$NTHREADS" "$FA" ;
 pigz -p "$NTHREADS" "$GTF"
