@@ -6,7 +6,7 @@
 ## 20 Sept 2021
 
 cd ~/giulia/indices
-
+STAR=/home/imallona/soft/star/bin/STAR
 GENOME=alien.fa
 GTF=alien.gtf
 NTHREADS=10
@@ -1934,7 +1934,7 @@ cd ~/giulia/indices
   
 mkdir -p "$ID"
 
-STAR --runThreadN "$NTHREADS" \
+$STAR --runThreadN "$NTHREADS" \
         --runMode genomeGenerate \
         --genomeDir "$ID" \
         --genomeFastaFiles "$FA" \

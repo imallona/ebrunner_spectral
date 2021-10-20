@@ -9,7 +9,7 @@ FA=GRCm38.p6.genome.fa
 GTF=gencode.vM25.annotation.gtf
 NTHREADS=20
 ID=GRCm38_gencode_M25
-
+STAR=/home/imallona/soft/star/bin/STAR
 
 mkdir -p ~/giulia/indices
 cd "$_"
@@ -26,7 +26,7 @@ mkdir -p "$ID"
 pigz --decompress -p "$NTHREADS" "$GTF".gz
 pigz --decompress -p "$NTHREADS" "$FA".gz
 
-STAR --runThreadN "$NTHREADS" \
+$STAR --runThreadN "$NTHREADS" \
         --runMode genomeGenerate \
         --genomeDir "$ID" \
         --genomeFastaFiles "$FA" \

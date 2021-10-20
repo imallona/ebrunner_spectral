@@ -25,6 +25,26 @@ cd zUMIs
 # make
 
 
+
+sudo apt install libharfbuzz-dev libfribidi-dev
+
+
+# STAR install
+
+
+mkdir $SOFT/star
+cd $_
+wget https://github.com/alexdobin/STAR/archive/2.7.9a.tar.gz
+tar -xzf 2.7.9a.tar.gz
+cd STAR-2.7.9a/source
+
+make STAR prefix=$SOFT/star
+mkdir -p $SOFT/star/bin
+cd $_
+
+ln -s $SOFT/star/STAR-2.7.9a/source/STAR
+
+
 ## R based deps
 /usr/local/R/R-4.1.0/bin/R -e '
 .libPaths("~/R/x86_64-pc-linux-gnu-library/4.1")

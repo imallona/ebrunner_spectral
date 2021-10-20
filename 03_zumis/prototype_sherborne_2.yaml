@@ -40,6 +40,6 @@ counting_opts:
 make_stats: yes
 which_Stage: Filtering
 Rscript_exec: /usr/local/R/R-4.1.0/bin/Rscript
-STAR_exec: STAR
+STAR_exec: /home/imallona/soft/star/bin/STAR
 pigz_exec: pigz
 samtools_exec: samtools
