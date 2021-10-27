@@ -30,7 +30,7 @@ barcodes:
   BarcodeBinning: 0
   nReadsperCell: 100
 counting_opts:
-  introns: no
+  introns: yes
   downsampling: '0'
   strand: 0
   Ham_Dist: 4
@@ -44,4 +44,3 @@ STAR_exec: /home/imallona/soft/star/bin/STAR
 pigz_exec: pigz
 samtools_exec: /home/imallona/soft/samtools/samtools-1.14/bin/samtools
 zUMIs_directory: /home/imallona/soft/zUMIs
-read_layout : SE
