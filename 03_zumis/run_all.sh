@@ -85,7 +85,28 @@ bash /home/imallona/soft/zUMIs/zUMIs.sh \
 source ~/virtenvs/zumis/bin/activate
 export R_LIBS=~/R/x86_64-pc-linux-gnu-library/3.6/
 
+mkdir -p /home/imallona/giulia/logs
+rm -rf /home/imallona/giulia/zumi_runs/downsampled/mouse
+mkdir -p /home/imallona/giulia/zumi_runs/downsampled/mouse/
 
 bash /home/imallona/soft/zUMIs/zUMIs.sh \
      -y /home/imallona/src/ebrunner_spectral/03_zumis/yaml/prototype_downsampled_mouse.yaml \
-    &> /home/imallona/giulia/zumi_runs/downsampled/mouse/zumis_mapping_r36.log
+    &> /home/imallona/giulia/logs/zumis_mapping_mouse_r36.log
+
+# what about trying conda?
+
+
+# also, try the example data run
+
+mkdir -p ~/giulia/zumis_example
+cd $_
+
+wget https://github.com/sdparekh/zUMIs/raw/zUMIs-version1/ExampleData/barcoderead_HEK.1mio.fq.gz
+wget https://github.com/sdparekh/zUMIs/raw/zUMIs-version1/ExampleData/cDNAread_HEK.1mio.fq.gz
+source ~/virtenvs/zumis/bin/activate
+export R_LIBS=~/R/x86_64-pc-linux-gnu-library/3.6/
+
+bash /home/imallona/soft/zUMIs/zUMIs.sh \
+     -y /home/imallona/src/ebrunner_spectral/03_zumis/yaml/runExample_local.yaml
+
+# it worked
