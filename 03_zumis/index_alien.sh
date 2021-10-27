@@ -1831,102 +1831,100 @@ TGATTACGCAGGATTGCGACCAAAGAACGAGAAAAAAAAAAAAAAAAAAA
 AAAAA
 EOF
 
-cat << EOF > "$GTF"
-tdtomato	ALIEN	exon	1	1431	0.000000	+	.	gene_id	"tdtomato";	transcript_id	"tdtomatot";
-egfp	ALIEN	exon	1	720	0.000000	+	.	gene_id	"egfp";	transcript_id	"egfpt";
-ERCC-00002	ERCC	exon	1	1061	0.000000	+	.	gene_id	"ERCC-00002";	transcript_id	"DQ459430";
-ERCC-00003	ERCC	exon	1	1023	0.000000	+	.	gene_id	"ERCC-00003";	transcript_id	"DQ516784";
-ERCC-00004	ERCC	exon	1	523	0.000000	+	.	gene_id	"ERCC-00004";	transcript_id	"DQ516752";
-ERCC-00009	ERCC	exon	1	984	0.000000	+	.	gene_id	"ERCC-00009";	transcript_id	"DQ668364";
-ERCC-00012	ERCC	exon	1	994	0.000000	+	.	gene_id	"ERCC-00012";	transcript_id	"DQ883670";
-ERCC-00013	ERCC	exon	1	808	0.000000	+	.	gene_id	"ERCC-00013";	transcript_id	"EF011062";
-ERCC-00014	ERCC	exon	1	1957	0.000000	+	.	gene_id	"ERCC-00014";	transcript_id	"DQ875385";
-ERCC-00016	ERCC	exon	1	844	0.000000	+	.	gene_id	"ERCC-00016";	transcript_id	"DQ883664";
-ERCC-00017	ERCC	exon	1	1136	0.000000	+	.	gene_id	"ERCC-00017";	transcript_id	"DQ459420";
-ERCC-00019	ERCC	exon	1	644	0.000000	+	.	gene_id	"ERCC-00019";	transcript_id	"DQ883651";
-ERCC-00022	ERCC	exon	1	751	0.000000	+	.	gene_id	"ERCC-00022";	transcript_id	"DQ855004";
-ERCC-00024	ERCC	exon	1	536	0.000000	+	.	gene_id	"ERCC-00024";	transcript_id	"DQ854993";
-ERCC-00025	ERCC	exon	1	1994	0.000000	+	.	gene_id	"ERCC-00025";	transcript_id	"DQ883689";
-ERCC-00028	ERCC	exon	1	1130	0.000000	+	.	gene_id	"ERCC-00028";	transcript_id	"DQ459419";
-ERCC-00031	ERCC	exon	1	1138	0.000000	+	.	gene_id	"ERCC-00031";	transcript_id	"DQ459431";
-ERCC-00033	ERCC	exon	1	2022	0.000000	+	.	gene_id	"ERCC-00033";	transcript_id	"DQ516796";
-ERCC-00034	ERCC	exon	1	1019	0.000000	+	.	gene_id	"ERCC-00034";	transcript_id	"DQ855001";
-ERCC-00035	ERCC	exon	1	1130	0.000000	+	.	gene_id	"ERCC-00035";	transcript_id	"DQ459413";
-ERCC-00039	ERCC	exon	1	740	0.000000	+	.	gene_id	"ERCC-00039";	transcript_id	"DQ883656";
-ERCC-00040	ERCC	exon	1	744	0.000000	+	.	gene_id	"ERCC-00040";	transcript_id	"DQ883661";
-ERCC-00041	ERCC	exon	1	1122	0.000000	+	.	gene_id	"ERCC-00041";	transcript_id	"EF011069";
-ERCC-00042	ERCC	exon	1	1023	0.000000	+	.	gene_id	"ERCC-00042";	transcript_id	"DQ516783";
-ERCC-00043	ERCC	exon	1	1023	0.000000	+	.	gene_id	"ERCC-00043";	transcript_id	"DQ516787";
-ERCC-00044	ERCC	exon	1	1156	0.000000	+	.	gene_id	"ERCC-00044";	transcript_id	"DQ459424";
-ERCC-00046	ERCC	exon	1	522	0.000000	+	.	gene_id	"ERCC-00046";	transcript_id	"DQ516748";
-ERCC-00048	ERCC	exon	1	992	0.000000	+	.	gene_id	"ERCC-00048";	transcript_id	"DQ883671";
-ERCC-00051	ERCC	exon	1	274	0.000000	+	.	gene_id	"ERCC-00051";	transcript_id	"DQ516740";
-ERCC-00053	ERCC	exon	1	1023	0.000000	+	.	gene_id	"ERCC-00053";	transcript_id	"DQ516785";
-ERCC-00054	ERCC	exon	1	274	0.000000	+	.	gene_id	"ERCC-00054";	transcript_id	"DQ516731";
-ERCC-00057	ERCC	exon	1	1021	0.000000	+	.	gene_id	"ERCC-00057";	transcript_id	"DQ668366";
-ERCC-00058	ERCC	exon	1	1136	0.000000	+	.	gene_id	"ERCC-00058";	transcript_id	"DQ459418";
-ERCC-00059	ERCC	exon	1	525	0.000000	+	.	gene_id	"ERCC-00059";	transcript_id	"DQ668356";
-ERCC-00060	ERCC	exon	1	523	0.000000	+	.	gene_id	"ERCC-00060";	transcript_id	"DQ516763";
-ERCC-00061	ERCC	exon	1	1136	0.000000	+	.	gene_id	"ERCC-00061";	transcript_id	"DQ459426";
-ERCC-00062	ERCC	exon	1	1023	0.000000	+	.	gene_id	"ERCC-00062";	transcript_id	"DQ516786";
-ERCC-00067	ERCC	exon	1	644	0.000000	+	.	gene_id	"ERCC-00067";	transcript_id	"DQ883653";
-ERCC-00069	ERCC	exon	1	1137	0.000000	+	.	gene_id	"ERCC-00069";	transcript_id	"DQ459421";
-ERCC-00071	ERCC	exon	1	642	0.000000	+	.	gene_id	"ERCC-00071";	transcript_id	"DQ883654";
-ERCC-00073	ERCC	exon	1	603	0.000000	+	.	gene_id	"ERCC-00073";	transcript_id	"DQ668358";
-ERCC-00074	ERCC	exon	1	522	0.000000	+	.	gene_id	"ERCC-00074";	transcript_id	"DQ516754";
-ERCC-00075	ERCC	exon	1	1023	0.000000	+	.	gene_id	"ERCC-00075";	transcript_id	"DQ516778";
-ERCC-00076	ERCC	exon	1	642	0.000000	+	.	gene_id	"ERCC-00076";	transcript_id	"DQ883650";
-ERCC-00077	ERCC	exon	1	273	0.000000	+	.	gene_id	"ERCC-00077";	transcript_id	"DQ516742";
-ERCC-00078	ERCC	exon	1	993	0.000000	+	.	gene_id	"ERCC-00078";	transcript_id	"DQ883673";
-ERCC-00079	ERCC	exon	1	644	0.000000	+	.	gene_id	"ERCC-00079";	transcript_id	"DQ883652";
-ERCC-00081	ERCC	exon	1	534	0.000000	+	.	gene_id	"ERCC-00081";	transcript_id	"DQ854991";
-ERCC-00083	ERCC	exon	1	1022	0.000000	+	.	gene_id	"ERCC-00083";	transcript_id	"DQ516780";
-ERCC-00084	ERCC	exon	1	994	0.000000	+	.	gene_id	"ERCC-00084";	transcript_id	"DQ883682";
-ERCC-00085	ERCC	exon	1	844	0.000000	+	.	gene_id	"ERCC-00085";	transcript_id	"DQ883669";
-ERCC-00086	ERCC	exon	1	1020	0.000000	+	.	gene_id	"ERCC-00086";	transcript_id	"DQ516791";
-ERCC-00092	ERCC	exon	1	1124	0.000000	+	.	gene_id	"ERCC-00092";	transcript_id	"DQ459425";
-ERCC-00095	ERCC	exon	1	521	0.000000	+	.	gene_id	"ERCC-00095";	transcript_id	"DQ516759";
-ERCC-00096	ERCC	exon	1	1107	0.000000	+	.	gene_id	"ERCC-00096";	transcript_id	"DQ459429";
-ERCC-00097	ERCC	exon	1	523	0.000000	+	.	gene_id	"ERCC-00097";	transcript_id	"DQ516758";
-ERCC-00098	ERCC	exon	1	1143	0.000000	+	.	gene_id	"ERCC-00098";	transcript_id	"DQ459415";
-ERCC-00099	ERCC	exon	1	1350	0.000000	+	.	gene_id	"ERCC-00099";	transcript_id	"DQ875387";
-ERCC-00104	ERCC	exon	1	2022	0.000000	+	.	gene_id	"ERCC-00104";	transcript_id	"DQ516815";
-ERCC-00108	ERCC	exon	1	1022	0.000000	+	.	gene_id	"ERCC-00108";	transcript_id	"DQ668365";
-ERCC-00109	ERCC	exon	1	536	0.000000	+	.	gene_id	"ERCC-00109";	transcript_id	"DQ854998";
-ERCC-00111	ERCC	exon	1	994	0.000000	+	.	gene_id	"ERCC-00111";	transcript_id	"DQ883685";
-ERCC-00112	ERCC	exon	1	1136	0.000000	+	.	gene_id	"ERCC-00112";	transcript_id	"DQ459422";
-ERCC-00113	ERCC	exon	1	840	0.000000	+	.	gene_id	"ERCC-00113";	transcript_id	"DQ883663";
-ERCC-00116	ERCC	exon	1	1991	0.000000	+	.	gene_id	"ERCC-00116";	transcript_id	"DQ668367";
-ERCC-00117	ERCC	exon	1	1136	0.000000	+	.	gene_id	"ERCC-00117";	transcript_id	"DQ459412";
-ERCC-00120	ERCC	exon	1	536	0.000000	+	.	gene_id	"ERCC-00120";	transcript_id	"DQ854992";
-ERCC-00123	ERCC	exon	1	1022	0.000000	+	.	gene_id	"ERCC-00123";	transcript_id	"DQ516782";
-ERCC-00126	ERCC	exon	1	1118	0.000000	+	.	gene_id	"ERCC-00126";	transcript_id	"DQ459427";
-ERCC-00130	ERCC	exon	1	1059	0.000000	+	.	gene_id	"ERCC-00130";	transcript_id	"EF011072";
-ERCC-00131	ERCC	exon	1	771	0.000000	+	.	gene_id	"ERCC-00131";	transcript_id	"DQ855003";
-ERCC-00134	ERCC	exon	1	274	0.000000	+	.	gene_id	"ERCC-00134";	transcript_id	"DQ516739";
-ERCC-00136	ERCC	exon	1	1033	0.000000	+	.	gene_id	"ERCC-00136";	transcript_id	"EF011063";
-ERCC-00137	ERCC	exon	1	537	0.000000	+	.	gene_id	"ERCC-00137";	transcript_id	"DQ855000";
-ERCC-00138	ERCC	exon	1	1024	0.000000	+	.	gene_id	"ERCC-00138";	transcript_id	"DQ516777";
-ERCC-00142	ERCC	exon	1	493	0.000000	+	.	gene_id	"ERCC-00142";	transcript_id	"DQ883646";
-ERCC-00143	ERCC	exon	1	784	0.000000	+	.	gene_id	"ERCC-00143";	transcript_id	"DQ668362";
-ERCC-00144	ERCC	exon	1	538	0.000000	+	.	gene_id	"ERCC-00144";	transcript_id	"DQ854995";
-ERCC-00145	ERCC	exon	1	1042	0.000000	+	.	gene_id	"ERCC-00145";	transcript_id	"DQ875386";
-ERCC-00147	ERCC	exon	1	1023	0.000000	+	.	gene_id	"ERCC-00147";	transcript_id	"DQ516790";
-ERCC-00148	ERCC	exon	1	494	0.000000	+	.	gene_id	"ERCC-00148";	transcript_id	"DQ883642";
-ERCC-00150	ERCC	exon	1	743	0.000000	+	.	gene_id	"ERCC-00150";	transcript_id	"DQ883659";
-ERCC-00154	ERCC	exon	1	537	0.000000	+	.	gene_id	"ERCC-00154";	transcript_id	"DQ854997";
-ERCC-00156	ERCC	exon	1	494	0.000000	+	.	gene_id	"ERCC-00156";	transcript_id	"DQ883643";
-ERCC-00157	ERCC	exon	1	1019	0.000000	+	.	gene_id	"ERCC-00157";	transcript_id	"DQ839618";
-ERCC-00158	ERCC	exon	1	1027	0.000000	+	.	gene_id	"ERCC-00158";	transcript_id	"DQ516795";
-ERCC-00160	ERCC	exon	1	743	0.000000	+	.	gene_id	"ERCC-00160";	transcript_id	"DQ883658";
-ERCC-00162	ERCC	exon	1	523	0.000000	+	.	gene_id	"ERCC-00162";	transcript_id	"DQ516750";
-ERCC-00163	ERCC	exon	1	543	0.000000	+	.	gene_id	"ERCC-00163";	transcript_id	"DQ668359";
-ERCC-00164	ERCC	exon	1	1022	0.000000	+	.	gene_id	"ERCC-00164";	transcript_id	"DQ516779";
-ERCC-00165	ERCC	exon	1	872	0.000000	+	.	gene_id	"ERCC-00165";	transcript_id	"DQ668363";
-ERCC-00168	ERCC	exon	1	1024	0.000000	+	.	gene_id	"ERCC-00168";	transcript_id	"DQ516776";
-ERCC-00170	ERCC	exon	1	1023	0.000000	+	.	gene_id	"ERCC-00170";	transcript_id	"DQ516773";
-ERCC-00171	ERCC	exon	1	505	0.000000	+	.	gene_id	"ERCC-00171";	transcript_id	"DQ854994";
-EOF
+echo -e 'tdtomato\tALIEN\texon\t1\t1431\t.\t+\t.\tgene_id "tdtomato"; transcript_id "tdtomatot";
+egfp\tALIEN\texon\t1\t720\t.\t+\t.\tgene_id "egfp"; transcript_id "egfpt";
+ERCC-00002\tERCC\texon\t1\t1061\t.\t+\t.\tgene_id "ERCC-00002"; transcript_id "DQ459430";
+ERCC-00003\tERCC\texon\t1\t1023\t.\t+\t.\tgene_id "ERCC-00003"; transcript_id "DQ516784";
+ERCC-00004\tERCC\texon\t1\t523\t.\t+\t.\tgene_id "ERCC-00004"; transcript_id "DQ516752";
+ERCC-00009\tERCC\texon\t1\t984\t.\t+\t.\tgene_id "ERCC-00009"; transcript_id "DQ668364";
+ERCC-00012\tERCC\texon\t1\t994\t.\t+\t.\tgene_id "ERCC-00012"; transcript_id "DQ883670";
+ERCC-00013\tERCC\texon\t1\t808\t.\t+\t.\tgene_id "ERCC-00013"; transcript_id "EF011062";
+ERCC-00014\tERCC\texon\t1\t1957\t.\t+\t.\tgene_id "ERCC-00014"; transcript_id "DQ875385";
+ERCC-00016\tERCC\texon\t1\t844\t.\t+\t.\tgene_id "ERCC-00016"; transcript_id "DQ883664";
+ERCC-00017\tERCC\texon\t1\t1136\t.\t+\t.\tgene_id "ERCC-00017"; transcript_id "DQ459420";
+ERCC-00019\tERCC\texon\t1\t644\t.\t+\t.\tgene_id "ERCC-00019"; transcript_id "DQ883651";
+ERCC-00022\tERCC\texon\t1\t751\t.\t+\t.\tgene_id "ERCC-00022"; transcript_id "DQ855004";
+ERCC-00024\tERCC\texon\t1\t536\t.\t+\t.\tgene_id "ERCC-00024"; transcript_id "DQ854993";
+ERCC-00025\tERCC\texon\t1\t1994\t.\t+\t.\tgene_id "ERCC-00025"; transcript_id "DQ883689";
+ERCC-00028\tERCC\texon\t1\t1130\t.\t+\t.\tgene_id "ERCC-00028"; transcript_id "DQ459419";
+ERCC-00031\tERCC\texon\t1\t1138\t.\t+\t.\tgene_id "ERCC-00031"; transcript_id "DQ459431";
+ERCC-00033\tERCC\texon\t1\t2022\t.\t+\t.\tgene_id "ERCC-00033"; transcript_id "DQ516796";
+ERCC-00034\tERCC\texon\t1\t1019\t.\t+\t.\tgene_id "ERCC-00034"; transcript_id "DQ855001";
+ERCC-00035\tERCC\texon\t1\t1130\t.\t+\t.\tgene_id "ERCC-00035"; transcript_id "DQ459413";
+ERCC-00039\tERCC\texon\t1\t740\t.\t+\t.\tgene_id "ERCC-00039"; transcript_id "DQ883656";
+ERCC-00040\tERCC\texon\t1\t744\t.\t+\t.\tgene_id "ERCC-00040"; transcript_id "DQ883661";
+ERCC-00041\tERCC\texon\t1\t1122\t.\t+\t.\tgene_id "ERCC-00041"; transcript_id "EF011069";
+ERCC-00042\tERCC\texon\t1\t1023\t.\t+\t.\tgene_id "ERCC-00042"; transcript_id "DQ516783";
+ERCC-00043\tERCC\texon\t1\t1023\t.\t+\t.\tgene_id "ERCC-00043"; transcript_id "DQ516787";
+ERCC-00044\tERCC\texon\t1\t1156\t.\t+\t.\tgene_id "ERCC-00044"; transcript_id "DQ459424";
+ERCC-00046\tERCC\texon\t1\t522\t.\t+\t.\tgene_id "ERCC-00046"; transcript_id "DQ516748";
+ERCC-00048\tERCC\texon\t1\t992\t.\t+\t.\tgene_id "ERCC-00048"; transcript_id "DQ883671";
+ERCC-00051\tERCC\texon\t1\t274\t.\t+\t.\tgene_id "ERCC-00051"; transcript_id "DQ516740";
+ERCC-00053\tERCC\texon\t1\t1023\t.\t+\t.\tgene_id "ERCC-00053"; transcript_id "DQ516785";
+ERCC-00054\tERCC\texon\t1\t274\t.\t+\t.\tgene_id "ERCC-00054"; transcript_id "DQ516731";
+ERCC-00057\tERCC\texon\t1\t1021\t.\t+\t.\tgene_id "ERCC-00057"; transcript_id "DQ668366";
+ERCC-00058\tERCC\texon\t1\t1136\t.\t+\t.\tgene_id "ERCC-00058"; transcript_id "DQ459418";
+ERCC-00059\tERCC\texon\t1\t525\t.\t+\t.\tgene_id "ERCC-00059"; transcript_id "DQ668356";
+ERCC-00060\tERCC\texon\t1\t523\t.\t+\t.\tgene_id "ERCC-00060"; transcript_id "DQ516763";
+ERCC-00061\tERCC\texon\t1\t1136\t.\t+\t.\tgene_id "ERCC-00061"; transcript_id "DQ459426";
+ERCC-00062\tERCC\texon\t1\t1023\t.\t+\t.\tgene_id "ERCC-00062"; transcript_id "DQ516786";
+ERCC-00067\tERCC\texon\t1\t644\t.\t+\t.\tgene_id "ERCC-00067"; transcript_id "DQ883653";
+ERCC-00069\tERCC\texon\t1\t1137\t.\t+\t.\tgene_id "ERCC-00069"; transcript_id "DQ459421";
+ERCC-00071\tERCC\texon\t1\t642\t.\t+\t.\tgene_id "ERCC-00071"; transcript_id "DQ883654";
+ERCC-00073\tERCC\texon\t1\t603\t.\t+\t.\tgene_id "ERCC-00073"; transcript_id "DQ668358";
+ERCC-00074\tERCC\texon\t1\t522\t.\t+\t.\tgene_id "ERCC-00074"; transcript_id "DQ516754";
+ERCC-00075\tERCC\texon\t1\t1023\t.\t+\t.\tgene_id "ERCC-00075"; transcript_id "DQ516778";
+ERCC-00076\tERCC\texon\t1\t642\t.\t+\t.\tgene_id "ERCC-00076"; transcript_id "DQ883650";
+ERCC-00077\tERCC\texon\t1\t273\t.\t+\t.\tgene_id "ERCC-00077"; transcript_id "DQ516742";
+ERCC-00078\tERCC\texon\t1\t993\t.\t+\t.\tgene_id "ERCC-00078"; transcript_id "DQ883673";
+ERCC-00079\tERCC\texon\t1\t644\t.\t+\t.\tgene_id "ERCC-00079"; transcript_id "DQ883652";
+ERCC-00081\tERCC\texon\t1\t534\t.\t+\t.\tgene_id "ERCC-00081"; transcript_id "DQ854991";
+ERCC-00083\tERCC\texon\t1\t1022\t.\t+\t.\tgene_id "ERCC-00083"; transcript_id "DQ516780";
+ERCC-00084\tERCC\texon\t1\t994\t.\t+\t.\tgene_id "ERCC-00084"; transcript_id "DQ883682";
+ERCC-00085\tERCC\texon\t1\t844\t.\t+\t.\tgene_id "ERCC-00085"; transcript_id "DQ883669";
+ERCC-00086\tERCC\texon\t1\t1020\t.\t+\t.\tgene_id "ERCC-00086"; transcript_id "DQ516791";
+ERCC-00092\tERCC\texon\t1\t1124\t.\t+\t.\tgene_id "ERCC-00092"; transcript_id "DQ459425";
+ERCC-00095\tERCC\texon\t1\t521\t.\t+\t.\tgene_id "ERCC-00095"; transcript_id "DQ516759";
+ERCC-00096\tERCC\texon\t1\t1107\t.\t+\t.\tgene_id "ERCC-00096"; transcript_id "DQ459429";
+ERCC-00097\tERCC\texon\t1\t523\t.\t+\t.\tgene_id "ERCC-00097"; transcript_id "DQ516758";
+ERCC-00098\tERCC\texon\t1\t1143\t.\t+\t.\tgene_id "ERCC-00098"; transcript_id "DQ459415";
+ERCC-00099\tERCC\texon\t1\t1350\t.\t+\t.\tgene_id "ERCC-00099"; transcript_id "DQ875387";
+ERCC-00104\tERCC\texon\t1\t2022\t.\t+\t.\tgene_id "ERCC-00104"; transcript_id "DQ516815";
+ERCC-00108\tERCC\texon\t1\t1022\t.\t+\t.\tgene_id "ERCC-00108"; transcript_id "DQ668365";
+ERCC-00109\tERCC\texon\t1\t536\t.\t+\t.\tgene_id "ERCC-00109"; transcript_id "DQ854998";
+ERCC-00111\tERCC\texon\t1\t994\t.\t+\t.\tgene_id "ERCC-00111"; transcript_id "DQ883685";
+ERCC-00112\tERCC\texon\t1\t1136\t.\t+\t.\tgene_id "ERCC-00112"; transcript_id "DQ459422";
+ERCC-00113\tERCC\texon\t1\t840\t.\t+\t.\tgene_id "ERCC-00113"; transcript_id "DQ883663";
+ERCC-00116\tERCC\texon\t1\t1991\t.\t+\t.\tgene_id "ERCC-00116"; transcript_id "DQ668367";
+ERCC-00117\tERCC\texon\t1\t1136\t.\t+\t.\tgene_id "ERCC-00117"; transcript_id "DQ459412";
+ERCC-00120\tERCC\texon\t1\t536\t.\t+\t.\tgene_id "ERCC-00120"; transcript_id "DQ854992";
+ERCC-00123\tERCC\texon\t1\t1022\t.\t+\t.\tgene_id "ERCC-00123"; transcript_id "DQ516782";
+ERCC-00126\tERCC\texon\t1\t1118\t.\t+\t.\tgene_id "ERCC-00126"; transcript_id "DQ459427";
+ERCC-00130\tERCC\texon\t1\t1059\t.\t+\t.\tgene_id "ERCC-00130"; transcript_id "EF011072";
+ERCC-00131\tERCC\texon\t1\t771\t.\t+\t.\tgene_id "ERCC-00131"; transcript_id "DQ855003";
+ERCC-00134\tERCC\texon\t1\t274\t.\t+\t.\tgene_id "ERCC-00134"; transcript_id "DQ516739";
+ERCC-00136\tERCC\texon\t1\t1033\t.\t+\t.\tgene_id "ERCC-00136"; transcript_id "EF011063";
+ERCC-00137\tERCC\texon\t1\t537\t.\t+\t.\tgene_id "ERCC-00137"; transcript_id "DQ855000";
+ERCC-00138\tERCC\texon\t1\t1024\t.\t+\t.\tgene_id "ERCC-00138"; transcript_id "DQ516777";
+ERCC-00142\tERCC\texon\t1\t493\t.\t+\t.\tgene_id "ERCC-00142"; transcript_id "DQ883646";
+ERCC-00143\tERCC\texon\t1\t784\t.\t+\t.\tgene_id "ERCC-00143"; transcript_id "DQ668362";
+ERCC-00144\tERCC\texon\t1\t538\t.\t+\t.\tgene_id "ERCC-00144"; transcript_id "DQ854995";
+ERCC-00145\tERCC\texon\t1\t1042\t.\t+\t.\tgene_id "ERCC-00145"; transcript_id "DQ875386";
+ERCC-00147\tERCC\texon\t1\t1023\t.\t+\t.\tgene_id "ERCC-00147"; transcript_id "DQ516790";
+ERCC-00148\tERCC\texon\t1\t494\t.\t+\t.\tgene_id "ERCC-00148"; transcript_id "DQ883642";
+ERCC-00150\tERCC\texon\t1\t743\t.\t+\t.\tgene_id "ERCC-00150"; transcript_id "DQ883659";
+ERCC-00154\tERCC\texon\t1\t537\t.\t+\t.\tgene_id "ERCC-00154"; transcript_id "DQ854997";
+ERCC-00156\tERCC\texon\t1\t494\t.\t+\t.\tgene_id "ERCC-00156"; transcript_id "DQ883643";
+ERCC-00157\tERCC\texon\t1\t1019\t.\t+\t.\tgene_id "ERCC-00157"; transcript_id "DQ839618";
+ERCC-00158\tERCC\texon\t1\t1027\t.\t+\t.\tgene_id "ERCC-00158"; transcript_id "DQ516795";
+ERCC-00160\tERCC\texon\t1\t743\t.\t+\t.\tgene_id "ERCC-00160"; transcript_id "DQ883658";
+ERCC-00162\tERCC\texon\t1\t523\t.\t+\t.\tgene_id "ERCC-00162"; transcript_id "DQ516750";
+ERCC-00163\tERCC\texon\t1\t543\t.\t+\t.\tgene_id "ERCC-00163"; transcript_id "DQ668359";
+ERCC-00164\tERCC\texon\t1\t1022\t.\t+\t.\tgene_id "ERCC-00164"; transcript_id "DQ516779";
+ERCC-00165\tERCC\texon\t1\t872\t.\t+\t.\tgene_id "ERCC-00165"; transcript_id "DQ668363";
+ERCC-00168\tERCC\texon\t1\t1024\t.\t+\t.\tgene_id "ERCC-00168"; transcript_id "DQ516776";
+ERCC-00170\tERCC\texon\t1\t1023\t.\t+\t.\tgene_id "ERCC-00170"; transcript_id "DQ516773";
+ERCC-00171\tERCC\texon\t1\t505\t.\t+\t.\tgene_id "ERCC-00171"; transcript_id "DQ854994";' > "$GTF"
 
 
 ## installs
@@ -1934,13 +1932,19 @@ cd ~/giulia/indices
   
 mkdir -p "$ID"
 
-$STAR --runThreadN "$NTHREADS" \
-        --runMode genomeGenerate \
-        --genomeDir "$ID" \
-        --genomeFastaFiles "$GENOME" \
-        --sjdbGTFfile "$GTF" \
-        --sjdbOverhang 59 \
-        --genomeSAindexNbases 7
+# $STAR --runThreadN "$NTHREADS" \
+#         --runMode genomeGenerate \
+#         --genomeDir "$ID" \
+#         --genomeFastaFiles "$GENOME" \
+#         --sjdbGTFfile "$GTF" \
+#         --sjdbOverhang 59 \
+#         --genomeSAindexNbases 7
+
+$STAR --runMode genomeGenerate \
+      --runThreadN "$NTHREADS" \
+      --genomeDir "$ID" \
+      --genomeFastaFiles "$GENOME" \
+      --genomeSAindexNbases 7
 
 pigz -p "$NTHREADS" "$GENOME"
 pigz -p "$NTHREADS" "$GTF"

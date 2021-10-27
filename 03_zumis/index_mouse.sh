@@ -26,12 +26,17 @@ mkdir -p "$ID"
 pigz --decompress -p "$NTHREADS" "$GTF".gz
 pigz --decompress -p "$NTHREADS" "$FA".gz
 
-$STAR --runThreadN "$NTHREADS" \
-        --runMode genomeGenerate \
-        --genomeDir "$ID" \
-        --genomeFastaFiles "$FA" \
-        --sjdbGTFfile "$GTF" \
-        --sjdbOverhang 59 # 61
+# $STAR --runThreadN "$NTHREADS" \
+#         --runMode genomeGenerate \
+#         --genomeDir "$ID" \
+#         --genomeFastaFiles "$FA" \
+#         --sjdbGTFfile "$GTF" \
+#         --sjdbOverhang 59 # 61
+
+$STAR --runMode genomeGenerate \
+      --runThreadN "$NTHREADS" \
+      --genomeDir "$ID" \
+      --genomeFastaFiles "$FA"
 
 pigz -p "$NTHREADS" "$FA" ;
 pigz -p "$NTHREADS" "$GTF"
