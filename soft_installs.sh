@@ -1,13 +1,13 @@
 #!/bin/bash
 ##
 ## zumis install, including
-## R-based dependencies
+## R-based dependencies, samtools, python-based deps etc
 ##
 ## Izaskun Mallona
 ## 18th Oct 2021
 ## GPLv2
 ##
-## ran in sherborne
+## ran in sherborne as user imallona; that is, ~ stands for /home/imallona here
 
 
 mkdir -p ~/soft
@@ -24,13 +24,10 @@ cd zUMIs
 # ./configure
 # make
 
-
-
 sudo apt install libharfbuzz-dev libfribidi-dev
 
 
-# STAR install
-
+# STAR install - v2.7.9a
 
 mkdir $SOFT/star
 cd $_
@@ -45,18 +42,19 @@ cd $_
 ln -s $SOFT/star/STAR-2.7.9a/source/STAR
 
 
-## R based deps
-/usr/local/R/R-4.1.0/bin/R -e '
-.libPaths("~/R/x86_64-pc-linux-gnu-library/4.1")
+# ## R based deps for R4.1.0 (did not work in my hands)
+# /usr/local/R/R-4.1.0/bin/R -e '
+# .libPaths("~/R/x86_64-pc-linux-gnu-library/4.1")
                                                 
-cran_pcks <- c("inflection","yaml","shiny","shinythemes","shinyBS","ggplot2","mclust","dplyr","cowplot","Matrix","BiocManager","devtools","stringdist","data.table","stringr","extraDistr")
+# cran_pcks <- c("inflection","yaml","shiny","shinythemes","shinyBS","ggplot2","mclust","dplyr","cowplot","Matrix","BiocManager","devtools","stringdist","data.table","stringr","extraDistr")
                                                 
-install.packages(cran_pcks, repos = "https://cloud.r-project.org/")
-bioc_pcks <- c("GenomicRanges","GenomicFeatures","GenomicAlignments","AnnotationDbi","GenomeInfoDb","plyranges")
-BiocManager::install(bioc_pcks)
-devtools::install_github("VPetukhov/ggrastr")
-'
+# install.packages(cran_pcks, repos = "https://cloud.r-project.org/")
+# bioc_pcks <- c("GenomicRanges","GenomicFeatures","GenomicAlignments","AnnotationDbi","GenomeInfoDb","plyranges")
+# BiocManager::install(bioc_pcks)
+# devtools::install_github("VPetukhov/ggrastr")
+# '
 
+## R based deps for R binaries of the 3.6x series
 export R_LIBS=~/R/x86_64-pc-linux-gnu-library/3.6/
 
 ## R based deps
@@ -89,6 +87,7 @@ make install prefix=~/soft/python/Python-3.10.0
 mkdir -p ~/virtenvs
 cd $_
 
+## virtenv with a python3's pysam
 ~/soft/python/Python-3.10.0/bin/virtualenv -p python3 zumis
 
 cd ~/virtenvs/zumis
@@ -97,8 +96,7 @@ source bin/activate
 which pip3
 pip3 install pysam
 
-
-## samtools install
+## modern 1.14 samtools install
 mkdir ~/soft/samtools
 cd $_
 wget https://github.com/samtools/samtools/releases/download/1.14/samtools-1.14.tar.bz2
