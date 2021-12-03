@@ -44,3 +44,4 @@ STAR_exec: /home/imallona/soft/star/bin/STAR
 pigz_exec: pigz
 samtools_exec: /home/imallona/soft/samtools/samtools-1.14/bin/samtools
 zUMIs_directory: /home/imallona/soft/zUMIs
+read_layout: SE
