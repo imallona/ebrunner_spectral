@@ -31,7 +31,11 @@ Developing at branch `develop` with occasional merges to `master`.
 - `01_proof_of_concept`: PoC for probe design (bash and Rmd)
 - `02_browser`: genome browser trakcs generator / probe design (bash)
 - `03_zumis`: utils to run zUMIs on the data, including the YAML files
-
+    - `index_alien.sh`
+    - `index_human_mouse_alien_combined.sh`
+    - `index_human.sh`
+    - `index_alien.sh`
+    
 # Notes/reminders
 
 Currently being run in imlssherborne.uzh.ch.
