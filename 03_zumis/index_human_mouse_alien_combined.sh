@@ -26,7 +26,7 @@ cd ~/giulia/indices
 mkdir -p "$ID"
 cd "$ID"
 
-## prepend the species/assembly to each
+## prepend the species/assembly to each scaffold/chromosome
 for ref in ${NAMES[@]}
 do
     echo "$ref"

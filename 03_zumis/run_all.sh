@@ -114,3 +114,14 @@ do
         &> /home/imallona/giulia/zumi_runs/batch_1/logs/"$(basename $yaml .yaml)".log
 
 done
+
+## extra yamls for combined runs
+
+for yaml in $(find $yaml_paths -name "combined*mod.yaml")
+do
+    echo "$yaml"
+    bash /home/imallona/soft/zUMIs/zUMIs.sh \
+         -y "$yaml" \
+        &> /home/imallona/giulia/zumi_runs/batch_1/logs/"$(basename $yaml .yaml)".log
+    
+done

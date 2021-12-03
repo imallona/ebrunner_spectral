@@ -28,14 +28,26 @@ Lorem ipsum dolor sit amet
 
 Developing at branch `develop` with occasional merges to `master`.
 
+- `soft_installs.sh`: to set up the envs
 - `01_proof_of_concept`: PoC for probe design (bash and Rmd)
 - `02_browser`: genome browser trakcs generator / probe design (bash)
 - `03_zumis`: utils to run zUMIs on the data, including the YAML files
     - `index_alien.sh`
-    - `index_human_mouse_alien_combined.sh`
     - `index_human.sh`
     - `index_alien.sh`
-    
+    - `index_human_mouse_alien_combined.sh`
+    - `run_all.sh`
+    - `yaml` folder including zUMIs yamls (refer to sherborne's paths)
+        - `batch_1/no_barcodes_hm_0/human__20210923.B-o26015_1_3-SPECTRAL_unmod.yaml` etc
+
+# How to run
+
+Check `run_all.sh` and the software `soft_installs.sh` to get an idea of the setup (virtenvs, Rlibs etc).
+
+```
+./zUMIs.sh  -y test.yaml -d /home/ubuntu/sandbox/zUMIs/ 2>&1 | tee -a logs/output.log
+```
+
 # Notes/reminders
 
 Currently being run in imlssherborne.uzh.ch.
