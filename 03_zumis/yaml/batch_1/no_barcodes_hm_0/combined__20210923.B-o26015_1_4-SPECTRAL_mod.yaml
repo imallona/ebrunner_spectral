@@ -1,4 +1,4 @@
-project: alien__20210923.B-o26015_1_4-SPECTRAL_mod
+project: mouse__20210923.B-o26015_1_4-SPECTRAL_mod
 sequence_files:
   file1:
     name: /home/imallona/giulia/fastqs/20210923.B-o26015_1_4-SPECTRAL_mod_R1.fastq.gz
@@ -9,13 +9,13 @@ sequence_files:
     name: /home/imallona/giulia/fastqs/20210923.B-o26015_1_4-SPECTRAL_mod_R2.fastq.gz
     base_definition: cDNA(1-62)
 reference:
-  STAR_index: /home/imallona/giulia/indice/human_mouse_alien_combined
+  STAR_index: /home/imallona/giulia/indices/human_mouse_alien_combined
   GTF_file: /home/imallona/giulia/indices/human_mouse_alien_combined/combined.gtf
   additional_STAR_params: ~
   additional_files: ~
 out_dir: /home/imallona/giulia/zumi_runs/batch_1/no_barcodes_hm_0/combined__20210923.B-o26015_1_4-SPECTRAL_mod
-num_threads: 15
-mem_limit: 150
+num_threads: 12
+mem_limit: 120
 filter_cutoffs:
   BC_filter:
     num_bases: 1
