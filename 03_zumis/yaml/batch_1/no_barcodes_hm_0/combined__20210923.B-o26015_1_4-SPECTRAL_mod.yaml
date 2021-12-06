@@ -1,4 +1,4 @@
-project: mouse__20210923.B-o26015_1_4-SPECTRAL_mod
+project: combined__20210923.B-o26015_1_4-SPECTRAL_mod
 sequence_files:
   file1:
     name: /home/imallona/giulia/fastqs/20210923.B-o26015_1_4-SPECTRAL_mod_R1.fastq.gz

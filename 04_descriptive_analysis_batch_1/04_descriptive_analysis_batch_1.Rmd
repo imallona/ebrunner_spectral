@@ -1,0 +1,107 @@
+---
+title: "Erich Brunner's Spectral prototype"
+author: "Izaskun Mallona, Mark D. Robinson lab, UZH"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+    code_download: true
+    number_sections: true
+    df_print: kable
+    theme: lumen
+params:
+  seed: 665
+---
+
+# Aim
+
+```
+```
+
+To be run in R 4.1.x with BioC 3.13
+
+# Findings
+
+# Overview
+
+```{r}
+ID <- '04_descriptive_spectral_batch_1'
+BASE <- file.path('/home', 'imallona')
+WD <- file.path(BASE, 'giulia', ID)
+TEST_DATA <- file.path(BASE, 'giulia', 'combined__20210923.B-o26015_1_3-SPECTRAL_unmod.dgecounts.rds')
+
+setwd(WD)
+
+NTHREADS <- 10
+DOWNSAMPLE <-  FALSE
+```
+
+```{r settings, include = TRUE}
+suppressPackageStartupMessages({
+    library(knitr)
+    library(Seurat)
+    library(scater)
+    library(data.table)
+    library(SingleCellExperiment)
+    library(scran)
+    library(org.Hs.eg.db)
+    library(dplyr)
+    library(DT)
+    library(pheatmap)
+    library(Cairo)
+    library(RColorBrewer)
+    library(future)
+    library(biomaRt)
+    library(BiocParallel)
+    library(future)
+    library(scDblFinder)
+    library(scSorter)
+    library(intrinsicDimension)
+})
+
+opts_chunk$set(fig.width = 5,
+               fig.height = 5,
+               cache = TRUE,
+               include = TRUE,
+               dev = "png",
+               cache.lazy = FALSE,
+               warning = TRUE,
+               message = TRUE)
+
+## plan("multiprocess", workers = NTHREADS)
+## options(future.globals.maxSize= 1.4e9)
+
+options(bitmapType='cairo')
+```
+
+```{r}
+plan("multiprocess", workers = NTHREADS)
+options(future.globals.maxSize= 30e9)
+```
+
+```{r functions}
+## add alpha
+ac <- function(col, alpha=1){
+  apply(sapply(col, col2rgb)/255, 2, 
+                     function(x) 
+                       rgb(x[1], x[2], x[3], alpha=alpha))  
+}
+```
+
+## Data load
+
+```{r data_load, message = FALSE, warning = FALSE}
+d <- list()
+```
+
+# Timestamp
+
+```{r sessionInfo2, cache = FALSE}
+date()
+sessionInfo()
+devtools::session_info()
+system('uname -a')
+system('whoami')
+```
