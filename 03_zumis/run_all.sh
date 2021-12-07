@@ -22,6 +22,10 @@ echo 'Index alien'
 
 bash index_alien.sh
 
+echo 'Index combined'
+
+bash index_human_mouse_alien_combined.sh
+
 echo 'Run one of the datasets / downsampled'
 
 # mkdir -p /home/imallona/giulia/zumi_runs/20210923.B-o26015_1_3-SPECTRAL_unmod
@@ -113,4 +117,18 @@ do
          -y "$yaml" \
         &> /home/imallona/giulia/zumi_runs/batch_1/logs/"$(basename $yaml .yaml)".log
 
+done
+
+## extra yamls for combined runs
+
+mv /home/imallona/giulia/indices/human_mouse_alien_combined/human_mouse_alien_combined/* \
+   /home/imallona/giulia/indices/human_mouse_alien_combined/
+
+for yaml in $(find $yaml_paths -name "combined*mod.yaml")
+do
+    echo "$yaml"
+    bash /home/imallona/soft/zUMIs/zUMIs.sh \
+         -y "$yaml" \
+        &> /home/imallona/giulia/zumi_runs/batch_1/logs/"$(basename $yaml .yaml)".log
+    
 done
