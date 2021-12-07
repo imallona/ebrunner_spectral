@@ -30,7 +30,7 @@ To be run in R 4.1.x with BioC 3.13
 ID <- '04_descriptive_spectral_batch_1'
 BASE <- file.path('/home', 'imallona')
 WD <- file.path(BASE, 'giulia', ID)
-TEST_DATA <- file.path(BASE, 'giulia', 'combined__20210923.B-o26015_1_3-SPECTRAL_unmod.dgecounts.rds')
+DATA <- file.path(BASE, 'giulia', 'data')
 
 setwd(WD)
 
@@ -46,7 +46,7 @@ suppressPackageStartupMessages({
     library(data.table)
     library(SingleCellExperiment)
     library(scran)
-    library(org.Hs.eg.db)
+    ## library(org.Hs.eg.db)
     library(dplyr)
     library(DT)
     library(pheatmap)
@@ -90,10 +90,73 @@ ac <- function(col, alpha=1){
 }
 ```
 
-## Data load
+# Descriptive analysis
 
 ```{r data_load, message = FALSE, warning = FALSE}
-d <- list()
+d <- list(mod = readRDS(file.path(DATA,
+                                  'combined__20210923.B-o26015_1_4-SPECTRAL_mod.dgecounts.rds')),
+          unmod = readRDS(file.path(DATA,
+                                    'combined__20210923.B-o26015_1_3-SPECTRAL_unmod.dgecounts.rds')))
+
+d <- lapply(d, function(x) return(x$umicount$inex$all))
+
+rowdata <- list(mod = read.table(
+                     file.path(DATA,
+                               'combined__20210923.B-o26015_1_4-SPECTRAL_mod.gene_names.txt'),
+                     header = TRUE),
+                 unmod = read.table(
+                     file.path(DATA,
+                               'combined__20210923.B-o26015_1_3-SPECTRAL_unmod.gene_names.txt')),
+                header = TRUE)
+
+coldata <- list(mod = data.frame(cell = colnames(d$mod),
+                                 mouse_score = NA, human_score = NA),
+                unmod = data.frame(cell = colnames(d$unmod),
+                                 mouse_score = NA, human_score = NA))
+                
+
+```
+
+
+- Mouse score: $\frac{reads mapped to mouse}{reads in total}$ (in both exons and introns)
+- Human score: $\frac{reads mapped to mouse}{reads in total}$ (in both exons and introns)
+
+```{r}
+human_pattern <- 'ENSG'
+mouse_pattern <- 'ENSMUSG'
+for (item in names(d)) {
+    coldata[[item]]$total_human <- colSums(d[[item]][grep(human_pattern, rownames(d[[item]])),])
+    coldata[[item]]$total_mouse <- colSums(d[[item]][grep(mouse_pattern, rownames(d[[item]])),])
+    coldata[[item]]$total <- colSums(d[[item]])
+    coldata[[item]]$total_alien <- coldata[[item]]$total - (coldata[[item]]$total_mouse +
+                                                            coldata[[item]]$total_human)
+}
+```
+
+
+```{r}
+for (item in names(d)) {
+    coldata[[item]]$human_score <- coldata[[item]]$total_human / coldata[[item]]$total
+    coldata[[item]]$mouse_score <- coldata[[item]]$total_mouse / coldata[[item]]$total
+}
+```
+
+```{r fig.height = 6, fig.width = 6}
+## par(mfrow = c(2,2))
+## plot(coldata$mod$total_human, coldata$mod$total_mouse)
+## plot(coldata$mod$total_human, coldata$mod$total)
+
+plot(coldata$mod[,c('mouse_score', 'human_score', 'total_human', 'total_mouse', 'total_alien')],
+     pch = '.', main = 'mod')
+```
+
+```{r fig.height = 6, fig.width = 6}
+## par(mfrow = c(2,2))
+## plot(coldata$unmod$total_human, coldata$unmod$total_mouse)
+## plot(coldata$unmod$total_human, coldata$unmod$total)
+
+plot(coldata$unmod[,c('mouse_score', 'human_score', 'total_human', 'total_mouse', 'total_alien')],
+     pch = '.', main = 'unmod')
 ```
 
 # Timestamp
