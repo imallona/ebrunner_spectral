@@ -36,7 +36,7 @@ ID <- '04_descriptive_spectral_batch_1'
 BASE <- file.path('/home', 'imallona')
 WD <- file.path(BASE, 'giulia', ID)
 DATA <- file.path(BASE, 'giulia', 'data')
-DOWNSAMPLE <- FALSE
+DOWNSAMPLE <- TRUE
 
 ## setwd(WD)
 
@@ -124,7 +124,7 @@ coldata <- list(mod = data.frame(cell = colnames(d$mod),
 
 ```
 
-```{r harmonize_missing_genes}
+```{r harmonize_missing_genes_all_genes}
 common <- unique(unlist(lapply(d, function(x) return(dimnames(x)[[1]]))))
 for (item in names(d)) {
     missing <- setdiff(common, dimnames(d[[item]])[[1]])
@@ -134,6 +134,7 @@ for (item in names(d)) {
                               dimnames = list(missing, colnames(d[[item]]))))
 }
 ```
+
 
 ```{r harmonize_rowdata}
 for (item in names(d)) {
@@ -155,6 +156,77 @@ for (item in names(d)) {
 }
                 
 ```
+
+```{r harmonize_by_gene_symbol}
+
+## maybe, we could collapse features that belong to the same genesymbol, mainly
+##  for the dimred
+for (item in names(rowdata)) {
+    rowdata[[item]]$gene_name_upper <- toupper(rowdata[[item]]$gene_name)
+
+    tmp <- as.data.frame(table(rowdata[[item]]$gene_name_upper))
+
+    rowdata[[item]]$shared <- NA
+    rowdata[[item]][rowdata[[item]]$gene_name_upper %in% tmp[tmp$Freq >= 2,
+                                                             'Var1'], 'shared'] <- 'shared'
+
+    
+    rowdata[[item]][rowdata[[item]]$gene_name_upper %in% tmp[tmp$Freq == 1, 'Var1'] &
+                    grepl('ENSG', rowdata[[item]]$gene_id), 'shared'] <- 'human_only'
+
+    rowdata[[item]][rowdata[[item]]$gene_name_upper %in% tmp[tmp$Freq == 1, 'Var1'] &
+                     grepl('ENSMUSG', rowdata[[item]]$gene_id), 'shared'] <- 'mouse_only'
+
+    rowdata[[item]][rowdata[[item]]$gene_id %in% c('tdtomato', 'egfp'), 'shared'] <- 'shared'
+
+    print(table(rowdata[[item]]$shared, useNA = 'always'))
+
+    ## head(rowdata[[item]][is.na(rowdata[[item]]$shared),])    
+}
+
+```
+
+```{r slow_fixme}
+## collapse reads by gene symbol, and create a reduced dataframe with those
+## to do: speed this up, make it more elegant
+
+harm <- list()
+for (item in names(d)) {
+    shared_symbols <- unique(rowdata[[item]]$gene_name_upper[rowdata[[item]]$shared == 'shared'])
+
+    harm[[item]] <- as.data.frame(matrix(data = 0,
+                                         nrow = length(shared_symbols),
+                                         ncol = ncol(d[[item]])),
+                                  row.names = shared_symbols,
+                                  col.names = colnames(d[[item]]))
+    colnames(harm[[item]]) <- colnames(d[[item]])
+
+    for (alien in c('tdtomato', 'egfp')) 
+        rownames(harm[[item]]) <- gsub(toupper(alien), alien, rownames(harm[[item]]))
+
+    ## test start
+    harm[[item]] <- do.call(rbind.data.frame,
+                            lapply(rownames(harm[[item]]),
+                                   function(x) {
+                                       symbol <- x
+                                       tmp <- d[[item]][rowdata[[item]][rowdata[[item]]$gene_name_upper == symbol, 'gene_id'],]
+               return(colSums(tmp))
+                                   }))
+               
+    colnames(harm[[item]]) <- colnames(d[[item]])
+    rownames(harm[[item]]) <- shared_symbols
+        
+}
+
+
+##     ## test end
+    
+##     for (symbol in rownames(harm[[item]])) {       
+##         harm[[item]][symbol,] <- colSums(d[[item]][rowdata[[item]][rowdata[[item]]$gene_name_upper == symbol, 'gene_id'],])
+##     }
+## }
+```
+
 
 - Mouse score: reads mapped to mouse / reads in total
 - Human score: reads mapped to human / reads in total
@@ -216,7 +288,7 @@ plot(coldata$unmod[,c('total_human', 'total_mouse', 'total_alien',
 
 ## Human/mouse thresholds
 
-```{r sce_object_combined}
+```{r sce_object_combined, eval = FALSE}
 for (item in names(d)) {
     coldata[[item]][,'name'] <- item
     colnames(d[[item]]) <- sprintf('%s_%s', item, colnames(d[[item]]))
@@ -225,12 +297,22 @@ for (item in names(d)) {
     rownames(coldata[[item]]) <- coldata[[item]]$cell
     coldata[[item]] <- coldata[[item]][colnames(d[[item]]),]    
 }
+```
 
+```{r sce_object_on_shared_genes_only}
+for (item in names(harm)) {
+    coldata[[item]][,'name'] <- item
+    colnames(harm[[item]]) <- sprintf('%s_%s', item, colnames(harm[[item]]))
+    coldata[[item]]$cell <- sprintf('%s_%s', item, coldata[[item]]$cell)
 
-tmp_counts <- cbind(d[[1]], d[[2]])
-rownames(tmp_counts) <- rownames(d[[1]])
+    rownames(coldata[[item]]) <- coldata[[item]]$cell
+    coldata[[item]] <- coldata[[item]][colnames(harm[[item]]),]    
+}
+
+tmp_counts <- cbind(harm[[1]], harm[[2]])
+rownames(tmp_counts) <- rownames(harm[[1]])
 ## tmp_counts[1:5, 1:5]
-rm(d)
+## rm(d)
 
 tmp_col <- rbind(coldata[[1]], coldata[[2]])
 rownames(tmp_col) <- tmp_col$cell
@@ -239,10 +321,11 @@ rownames(tmp_col) <- tmp_col$cell
 stopifnot(all(colnames(tmp_counts) == rownames(tmp_col)))
 stopifnot(all(rownames(tmp_counts) == rownames(rowdata[[1]])))
 
+## to do: better track the gene symbols that were collapsed
 sce <- SingleCellExperiment(list(counts = tmp_counts),
                              colData = tmp_col,
-                             rowData = rowdata[[1]])
-rm(tmp_counts, tmp_col)
+                             rowData = rownames(tmp_counts))
+rm(tmp_counts, tmp_col, d, harm)
 ```
 
 ```{r}
