@@ -18,11 +18,16 @@ params:
 # Aim
 
 ```
+to do
 ```
 
 To be run in R 4.1.x with BioC 3.13
 
 # Findings
+
+```
+to do
+```
 
 # Overview
 
@@ -31,15 +36,17 @@ ID <- '04_descriptive_spectral_batch_1'
 BASE <- file.path('/home', 'imallona')
 WD <- file.path(BASE, 'giulia', ID)
 DATA <- file.path(BASE, 'giulia', 'data')
+DOWNSAMPLE <- TRUE
 
-setwd(WD)
+## setwd(WD)
 
 NTHREADS <- 10
-DOWNSAMPLE <-  FALSE
 ```
 
 ```{r settings, include = TRUE}
 suppressPackageStartupMessages({
+    ## library(paletteer)
+    library(RColorBrewer)
     library(knitr)
     library(Seurat)
     library(scater)
@@ -76,7 +83,7 @@ opts_chunk$set(fig.width = 5,
 options(bitmapType='cairo')
 ```
 
-```{r}
+```{r, eval = TRUE}
 plan("multiprocess", workers = NTHREADS)
 options(future.globals.maxSize= 30e9)
 ```
@@ -106,22 +113,53 @@ rowdata <- list(mod = read.table(
                      header = TRUE),
                  unmod = read.table(
                      file.path(DATA,
-                               'combined__20210923.B-o26015_1_3-SPECTRAL_unmod.gene_names.txt')),
-                header = TRUE)
+                               'combined__20210923.B-o26015_1_3-SPECTRAL_unmod.gene_names.txt'),
+                     header = TRUE))
+
 
 coldata <- list(mod = data.frame(cell = colnames(d$mod),
                                  mouse_score = NA, human_score = NA),
                 unmod = data.frame(cell = colnames(d$unmod),
-                                 mouse_score = NA, human_score = NA))
-                
+                                   mouse_score = NA, human_score = NA))
 
 ```
 
+```{r harmonize_missing_genes}
+common <- unique(unlist(lapply(d, function(x) return(dimnames(x)[[1]]))))
+for (item in names(d)) {
+    missing <- setdiff(common, dimnames(d[[item]])[[1]])
+
+    d[[item]] <- rbind(as.matrix(d[[item]]),
+                       matrix(data = 0, ncol = ncol(d[[item]]), nrow = length(missing),
+                              dimnames = list(missing, colnames(d[[item]]))))
+}
+```
+
+```{r harmonize_rowdata}
+for (item in names(d)) {
+    if (!'egfp' %in% rowdata[[item]]$gene_id) { 
+        rowdata[[item]] <- rbind(rowdata[[item]], data.frame(gene_id = c('egfp', 'tdtomato'),
+                                                             gene_name = c('egfp', 'tdtomato')))
+    }
+    
+    rownames(rowdata[[item]]) <- rowdata[[item]]$gene_id
+    ## head(rownames(rowdata[[item]]))
+    ## head(dimnames(d[[item]])[[1]])
+    ## setdiff(dimnames(d[[item]])[[1]], rownames(rowdata[[item]]))
+
+    rowdata[[item]] <- rowdata[[item]][dimnames(d[[item]])[[1]],]
+
+    ## table(rownames(rowdata[[item]]) != dimnames(d[[item]])[[1]])
+    ## rownames(rowdata[[item]])[rownames(rowdata[[item]]) != dimnames(d[[item]])[[1]]]
+    stopifnot(all(rownames(rowdata[[item]]) == dimnames(d[[item]])[[1]]))
+}
+                
+```
 
 - Mouse score: $\frac{reads mapped to mouse}{reads in total}$ (in both exons and introns)
 - Human score: $\frac{reads mapped to mouse}{reads in total}$ (in both exons and introns)
 
-```{r}
+```{r mouse_human_scores}
 human_pattern <- 'ENSG'
 mouse_pattern <- 'ENSMUSG'
 for (item in names(d)) {
@@ -133,12 +171,19 @@ for (item in names(d)) {
 }
 ```
 
-
-```{r}
+```{r coloring_cells}
 for (item in names(d)) {
     coldata[[item]]$human_score <- coldata[[item]]$total_human / coldata[[item]]$total
     coldata[[item]]$mouse_score <- coldata[[item]]$total_mouse / coldata[[item]]$total
+    for (alien in c('tdtomato', 'egfp')) {
+        coldata[[item]][,alien] <- d[[item]][alien,]
+    }
+    coldata[[item]]$color <- 'black'
+    coldata[[item]][coldata[[item]]$tdtomato > 0, 'color'] <- 'red'
+    coldata[[item]][coldata[[item]]$egfp > 0, 'color'] <- 'forestgreen'
+    coldata[[item]][coldata[[item]]$egfp > 0 & coldata[[item]]$tdtomato > 0, 'color'] <- 'blue'
 }
+
 ```
 
 ```{r fig.height = 6, fig.width = 6}
@@ -146,8 +191,14 @@ for (item in names(d)) {
 ## plot(coldata$mod$total_human, coldata$mod$total_mouse)
 ## plot(coldata$mod$total_human, coldata$mod$total)
 
-plot(coldata$mod[,c('mouse_score', 'human_score', 'total_human', 'total_mouse', 'total_alien')],
-     pch = '.', main = 'mod')
+## shuffling so plotting is a bit less biased
+set.seed(2)
+coldata$mod <- coldata$mod[sample(1:nrow(coldata$mod), nrow(coldata$mod), replace = FALSE),]
+
+plot(coldata$mod[,c('total_human', 'total_mouse', 'total_alien',
+                    'egfp', 'tdtomato')],
+     pch = 20, main = 'mod', cex = 0.5,
+     col = coldata$mod$color)
 ```
 
 ```{r fig.height = 6, fig.width = 6}
@@ -155,9 +206,809 @@ plot(coldata$mod[,c('mouse_score', 'human_score', 'total_human', 'total_mouse', 
 ## plot(coldata$unmod$total_human, coldata$unmod$total_mouse)
 ## plot(coldata$unmod$total_human, coldata$unmod$total)
 
-plot(coldata$unmod[,c('mouse_score', 'human_score', 'total_human', 'total_mouse', 'total_alien')],
-     pch = '.', main = 'unmod')
+## shuffling so plotting is a bit less biased
+set.seed(542)
+coldata$unmod <- coldata$unmod[sample(1:nrow(coldata$unmod), nrow(coldata$unmod), replace = FALSE),]
+
+
+plot(coldata$unmod[,c('total_human', 'total_mouse', 'total_alien',
+                      'egfp', 'tdtomato')],
+     pch = '.', main = 'unmod',
+     col = coldata$mod$color)
 ```
+
+# QC
+
+
+
+```{r sce_object_combined}
+for (item in names(d)) {
+    coldata[[item]][,'name'] <- item
+    colnames(d[[item]]) <- sprintf('%s_%s', item, colnames(d[[item]]))
+    coldata[[item]]$cell <- sprintf('%s_%s', item, coldata[[item]]$cell)
+
+    rownames(coldata[[item]]) <- coldata[[item]]$cell
+    coldata[[item]] <- coldata[[item]][colnames(d[[item]]),]    
+}
+
+
+tmp_counts <- cbind(d[[1]], d[[2]])
+rownames(tmp_counts) <- rownames(d[[1]])
+## tmp_counts[1:5, 1:5]
+rm(d)
+
+tmp_col <- rbind(coldata[[1]], coldata[[2]])
+rownames(tmp_col) <- tmp_col$cell
+## tmp_counts[1:5,1:5]
+
+stopifnot(all(colnames(tmp_counts) == rownames(tmp_col)))
+stopifnot(all(rownames(tmp_counts) == rownames(rowdata[[1]])))
+
+(sce <- SingleCellExperiment(list(counts = tmp_counts),
+                             colData = tmp_col,
+                             rowData = rowdata[[1]]))
+rm(tmp_counts, tmp_col)
+```
+
+```{r}
+if (DOWNSAMPLE) {
+    sce <- sce[,sample(1:ncol(sce), 1000, replace = FALSE)]
+}
+```
+
+```{r binarize_species}
+par(mfrow = c(1,2))
+hist(colData(sce)$mouse_score)
+hist(colData(sce)$human_score)
+colData(sce)$species <- 'unknown'
+
+colData(sce)[colData(sce)$mouse_score >= 0.7, 'species'] <- 'mouse'
+colData(sce)[colData(sce)$human_score >= 0.7, 'species'] <- 'human'
+table(colData(sce)$species)
+```
+
+
+## Per cell and per feature QC {.tabset .tabset-fade .tabset-pills}
+
+
+```{r qualmetrics, fig.width = 5, fig.height = 4, results = 'asis'}
+
+sce <- sce[,colSums(counts(sce)) > 0]
+
+sce <- sce[rowSums(counts(sce)) > 0,]
+## dim(sce)
+## sce <- calculateQCMetrics(sce)
+## colnames(colData(sce))
+mt_regex <- '^mt-'
+sce <- addPerCellQC(sce, 
+                    subsets = list(mito = grep(mt_regex,
+                                               rowData(sce)$gene_name, value = FALSE)))
+
+cat('### ', 'Sum vs detected (by name)', ' \n\n')
+plotColData(sce, x = "sum", y="detected", colour_by = c("name"))
+cat('\n\n')
+
+cat('### ', 'Sum vs detected (by species)', ' \n\n')
+plotColData(sce, x = "sum", y="detected", colour_by = c("species"))
+cat('\n\n')
+
+cat('### ', 'Highest expressed', ' \n\n')
+plotHighestExprs(sce, exprs_values = "counts")
+cat('\n\n')
+```
+
+
+```{r varpart, fig.width = 4, fig.height = 4, results = 'asis'}
+sce <- logNormCounts(sce) 
+## colData(sce)$name <- colData(sce)$orig.ident
+vars <- getVarianceExplained(sce, variables = c("name", "species"))
+
+cat('### ', 'Variance partitioning', ' \n\n')
+plotExplanatoryVariables(vars)
+cat('\n\n')
+```
+
+```{r}
+sce <- addPerFeatureQC(sce)
+
+## colnames(colData(sce))
+
+```
+
+
+## Doublet detection and removal {.tabset .tabset-fade .tabset-pills}
+
+
+### Doublets detected
+
+```{r doublet_detection, warnings = FALSE}
+
+colData(sce)$compound_id <- sprintf('%s_%s', colData(sce)$name, colData(sce)$species)
+
+# the expected proportion of doublets is 1% per 1000 cells
+sce <- scDblFinder(sce, samples = "name", BPPARAM = MulticoreParam(NTHREADS))
+
+table(colData(sce)[,c("scDblFinder.class", "name")])
+table(colData(sce)[,c("scDblFinder.class", "compound_id")])
+```
+
+### Doublets placement {.tabset .tabset-fade .tabset-pills}
+
+#### Doublets and singlets, by tag 
+
+Red depicts doublets
+
+```{r, fig.width = 6, fig.height = 6}
+
+plot(as.data.frame(colData(sce)[,c('total_human', 'total_mouse', 'total_alien',
+                    'egfp', 'tdtomato')]),
+     pch = 20, main = 'scDblFinder doublets', cex = 0.5,
+     col = as.numeric(colData(sce)$scDblFinder.class))
+```
+
+
+#### Doublets only
+
+```{r, fig.width = 6, fig.height = 6}
+
+curr <- subset(sce, , scDblFinder.class == 'doublet')
+
+plot(as.data.frame(colData(curr))[,c('total_human', 'total_mouse', 'total_alien',
+                    'egfp', 'tdtomato')],
+     pch = 20, main = 'scDblFinder doublets', cex = 0.5,
+     col = colData(curr)$color)
+```
+
+#### Doublet scores (for doublets only)
+
+```{r, fig.width = 6, fig.height = 6}
+
+## pal <- paletteer::paletteer_c("viridis::viridis", n = 20)
+pal <- brewer.pal(9, "Blues")
+# Transform the numeric variable in bins
+score_rank <- as.factor(as.numeric(cut(colData(curr)$scDblFinder.score, 9)))
+
+
+plot(as.data.frame(colData(curr)[,c('total_human', 'total_mouse', 'total_alien',
+                    'egfp', 'tdtomato')]),
+     pch = 20, main = 'scDblFinder doublets', cex = 0.5,
+     col = pal[as.numeric(score_rank)])
+
+```
+
+
+#### Singlets only
+
+```{r, fig.width = 6, fig.height = 6}
+
+curr <- subset(sce, , scDblFinder.class == 'singlet')
+
+plot(as.data.frame(colData(curr))[,c('total_human', 'total_mouse', 'total_alien',
+                    'egfp', 'tdtomato')],
+     pch = 20, main = 'scDblFinder singlets', cex = 0.5,
+     col = colData(curr)$color)
+```
+
+
+```{r doublet_removal}
+sce <- sce[,sce$scDblFinder.class == "singlet"]
+
+```
+
+## Quality metrics and outlier detection  {.tabset .tabset-fade .tabset-pills}
+
+
+Tagging and removal of outliers for the library size and the number of expressed features and mitoc content; check if the per-run stratification is reasonable here.
+
+```{r outliers}
+libsize.drop <- isOutlier(sce$total, nmads = 2, type = "both", log = TRUE,
+                          batch = sce$compound_id)
+feature.drop <- isOutlier(sce$detected, nmads = 2, type = "both", log = TRUE,
+                          batch = sce$compound_id)
+mito.drop <- isOutlier(sce$subsets_mito_percent, nmads = 2, type = "higher",
+                       batch = sce$compoiund_iud)
+## mito.drop.manual <- sce$subsets_mito_percent >= 15
+## featuresize.drop.manual <- sce$total_features_by_counts < 2000
+
+```
+
+
+### Populations before QC
+
+
+```{r}
+
+table(colData(sce)$name, colData(sce)$compound_id, useNA = 'always')
+```
+
+## Overall quality metrics before QC {.tabset .tabset-fade .tabset-pills}
+
+
+```{r scater_plots_before, results = 'asis'}
+
+for (id in unique(colData(sce)$compound_id)) {
+    par(mfrow=c(2,2), mar=c(5.1, 4.1, 0.1, 0.1))
+
+    curr <- subset(sce, , compound_id == id)
+    
+    cat('### ', id, ' \n\n') 
+    hist(curr$total/1e3, xlab="Library sizes (thousands)", main="", 
+         breaks=20, col="grey80", ylab="Number of cells")
+    abline(v = attr(libsize.drop, 'thresholds')['lower']/1e3, col = 'blue')
+    abline(v = attr(libsize.drop, 'thresholds')['higher']/1e3, col = 'blue')
+
+    hist(curr$detected, xlab="Number of expressed genes", main="", 
+         breaks=20, col="grey80", ylab="Number of cells")
+    abline(v = attr(feature.drop, 'thresholds')['lower'], col = 'blue')
+    abline(v = attr(feature.drop, 'thresholds')['higher'], col = 'blue')
+
+    ## hist(curr$altexps_spikes_percent, xlab="ERCC proportion (%)",
+    ##      ylab="Number of cells", breaks=20, main="", col="grey80")
+    ## abline(v = attr(spike.drop, 'thresholds')['higher'], col = 'blue')
+
+    hist(curr$subsets_mito_percent, xlab="Mitochondrial proportion (%)", 
+         ylab="Number of cells", breaks=20, main="", col="grey80")
+    abline(v = attr(mito.drop, 'thresholds')['higher'], col = 'blue')
+    cat('\n\n')
+}
+
+```
+
+
+```{r library_sizes_before, , results = 'asis'}
+for (id in unique(colData(sce)$compound_id)) {
+    par(mfrow=c(2,2), mar=c(5.1, 4.1, 0.1, 0.1))
+
+    curr <- subset(sce, , compound_id == id)
+
+    
+    plot(density(curr$total/1e3),
+         xlab = "library sizes (thousands)",
+         main = '')
+
+    rug(curr$total/1e3)
+
+    plot(y = curr$total/1e3,
+         x = curr$subsets_mito_percent,
+         col = ac(as.numeric(as.factor(curr$name), 0.5)),
+         pch = 20,
+         ylab = 'library size (thousands)',
+         xlab = 'mitochondrial proportion (%)',
+         ## col = ac('black', 0.5)
+         )
+
+    plot(y = curr$total/1e3,
+         x = curr$detected,
+         col = ac(as.numeric(as.factor(curr$name)), 0.5),
+         pch = 20,
+         ylab = 'library size (thousands)',
+         xlab = 'number of genes')
+    ## col = ac('black', 0.5)
+    ## )
+
+    ## plot(y = curr$total/1e3,
+    ##      x = curr$altexps_spikes_percent,
+    ##      col = ac(as.numeric(as.factor(curr$name)), 0.5),
+    ##      pch = 20,
+    ##      ylab = 'library size (thousands)',
+    ##      xlab = "ERCC proportion (%)",
+    ##      ## col = ac('black', 0.5)
+    ##      )
+
+    plot(y = curr$subsets_mito_percent,
+         x = curr$detected,
+         pch = 20,
+         xlab = 'number of genes',
+         ylab = 'mitochondrial proportion (%)',
+         col = ac('black', 0.5))
+} 
+```
+
+## Detected outliers
+
+```{r}
+sce <- sce[,!(libsize.drop | feature.drop | mito.drop)]
+data.frame(ByLibSize = sum(libsize.drop), ByFeature = sum(feature.drop), 
+           ByMito= sum(mito.drop),
+           Remaining = ncol(sce))
+```
+
+## Populations after QC
+
+
+```{r, fig.height = 5, fig.width = 5}
+table(colData(sce)$name, colData(sce)$compound_id, useNA = 'always')
+
+plot(as.data.frame(colData(sce)[,c('total_human', 'total_mouse', 'total_alien',
+                    'egfp', 'tdtomato')]),
+     pch = 20, main = 'singlets, QC-filtered', cex = 0.5,
+     col = colData(sce)$color)
+
+```
+
+## Overall quality metrics after QC
+
+
+```{r scater_plots_after, results = 'asis'}
+
+for (id in unique(colData(sce)$compound_id)) {
+    par(mfrow=c(2,2), mar=c(5.1, 4.1, 0.1, 0.1))
+
+    curr <- subset(sce, , compound_id == id)
+    
+    cat('### ', id, ' \n\n') 
+    hist(curr$total/1e3, xlab="Library sizes (thousands)", main="", 
+         breaks=20, col="grey80", ylab="Number of cells")
+    abline(v = attr(libsize.drop, 'thresholds')['lower']/1e3, col = 'blue')
+    abline(v = attr(libsize.drop, 'thresholds')['higher']/1e3, col = 'blue')
+
+    hist(curr$detected, xlab="Number of expressed genes", main="", 
+         breaks=20, col="grey80", ylab="Number of cells")
+    abline(v = attr(feature.drop, 'thresholds')['lower'], col = 'blue')
+    abline(v = attr(feature.drop, 'thresholds')['higher'], col = 'blue')
+
+    ## hist(curr$altexps_spikes_percent, xlab="ERCC proportion (%)",
+    ##      ylab="Number of cells", breaks=20, main="", col="grey80")
+    ## abline(v = attr(spike.drop, 'thresholds')['higher'], col = 'blue')
+
+    hist(curr$subsets_mito_percent, xlab="Mitochondrial proportion (%)", 
+         ylab="Number of cells", breaks=20, main="", col="grey80")
+    abline(v = attr(mito.drop, 'thresholds')['higher'], col = 'blue')
+    cat('\n\n')
+}
+
+```
+
+
+```{r library_sizes_after, , results = 'asis'}
+for (id in unique(colData(sce)$compound_id)) {
+    par(mfrow=c(2,2), mar=c(5.1, 4.1, 0.1, 0.1))
+
+    curr <- subset(sce, , compound_id == id)
+
+    
+    plot(density(curr$total/1e3),
+         xlab = "library sizes (thousands)",
+         main = '')
+
+    rug(curr$total/1e3)
+
+    plot(y = curr$total/1e3,
+         x = curr$subsets_mito_percent,
+         col = ac(as.numeric(as.factor(curr$name), 0.5)),
+         pch = 20,
+         ylab = 'library size (thousands)',
+         xlab = 'mitochondrial proportion (%)',
+         ## col = ac('black', 0.5)
+         )
+
+    plot(y = curr$total/1e3,
+         x = curr$detected,
+         col = ac(as.numeric(as.factor(curr$name)), 0.5),
+         pch = 20,
+         ylab = 'library size (thousands)',
+         xlab = 'number of genes')
+    ## col = ac('black', 0.5)
+    ## )
+
+    ## plot(y = curr$total/1e3,
+    ##      x = curr$altexps_spikes_percent,
+    ##      col = ac(as.numeric(as.factor(curr$name)), 0.5),
+    ##      pch = 20,
+    ##      ylab = 'library size (thousands)',
+    ##      xlab = "ERCC proportion (%)",
+    ##      ## col = ac('black', 0.5)
+    ##      )
+
+    plot(y = curr$subsets_mito_percent,
+         x = curr$detected,
+         pch = 20,
+         xlab = 'number of genes',
+         ylab = 'mitochondrial proportion (%)',
+         col = ac('black', 0.5))
+} 
+```
+
+
+# Not integrated  {.tabset .tabset-fade .tabset-pills}
+
+```{r}
+plan("multiprocess", workers = NTHREADS)
+options(future.globals.maxSize= 12.0e9)
+
+
+```
+
+```{r, warning = FALSE, message =  FALSE}
+so <- CreateSeuratObject(counts = counts(sce),
+                         project = "brunner_spectral_batch1",
+                         meta.data = as.data.frame(colData(sce)),
+                         min.cells = 0, min.features = 0,
+                         assay = 'RNA')
+
+so <- SCTransform(so,  verbose = FALSE, assay = 'RNA')
+
+```
+
+
+```{r, message = FALSE, warning = FALSE}
+
+so <- RunPCA(object = so,
+             features = VariableFeatures(so),
+             verbose = FALSE,
+             npcs = 40)
+
+```
+
+## Loadings
+
+```{r, fig.width = 6, fig.height = 8}
+VizDimLoadings(object = so, dims = 1:4)
+```
+
+## Elbow
+
+```{r, fig.width =4, fig.height = 4}
+print(ElbowPlot(object = so, ndims = 40))
+
+```
+
+```{r}
+merged_dims <- 1:24
+print('finetuneme')
+```
+
+```{r, message = FALSE}
+
+so <- FindNeighbors(object = so, dims = merged_dims)
+
+## (resolutions <- seq(0.2, 1.4, by = 0.6))
+resolutions <- 0.2
+
+for (res in resolutions) {
+    so <- FindClusters(object = so, resolution = res)
+}
+
+```
+
+## PCA {.tabset .tabset-fade .tabset-pills}
+
+```{r, fig.width = 7, fig.height = 4, results='asis'}
+
+layers <- c("name", "species",
+            grep('snn_res', colnames(so@meta.data), value = TRUE))
+
+for (item in layers){
+
+    cat('### ', item, ' \n\n')
+    print(DimPlot(object = so, reduction = "pca", group.by = item) +
+          ggtitle(item) +
+          theme(legend.position="right", aspect.ratio = 1))
+
+    cat('\n\n')
+}
+
+cat('### RNA counts \n\n')
+FeaturePlot(object = so, reduction = "pca", features = 'nCount_SCT') +
+    theme(legend.position="right", aspect.ratio = 1)
+cat('\n\n')
+
+cat('### Number of features \n\n')
+FeaturePlot(object = so, reduction = "pca", features = 'nFeature_SCT')+
+    theme(legend.position="right", aspect.ratio = 1)
+cat('\n\n')
+
+cat('### Percent mitochondrial reads \n\n')
+FeaturePlot(object = so, reduction = "pca", features = 'subsets_mito_percent')+
+    theme(legend.position="right", aspect.ratio = 1)
+cat('\n\n')
+
+cat('### egfp \n\n')
+FeaturePlot(object = so, reduction = "pca", features = 'egfp')+
+    theme(legend.position="right", aspect.ratio = 1)
+cat('\n\n')
+
+cat('### tdtomato \n\n')
+FeaturePlot(object = so, reduction = "pca", features = 'tdtomato')+
+    theme(legend.position="right", aspect.ratio = 1)
+cat('\n\n')
+```
+
+## tSNEs {.tabset .tabset-fade .tabset-pills}
+
+```{r, fig.width = 8, fig.height = 4}
+
+so <- RunTSNE(object = so, dims.use = merged_dims, 
+              do.fast = TRUE, seed.use = 111)
+```
+
+```{r, fig.width = 7, fig.height = 4, results='asis'}
+
+for (item in layers){               
+
+    cat('### ', item, ' \n\n')
+    print(DimPlot(object = so, reduction = "tsne", group.by = item) +
+          ggtitle(item) +
+          theme(legend.position="right", aspect.ratio = 1))
+    cat('\n\n')
+}
+    
+cat('### RNA counts \n\n')
+FeaturePlot(object = so, reduction = "tsne", features = 'nCount_SCT') +
+    theme(legend.position="right", aspect.ratio = 1)
+cat('\n\n')
+
+cat('### Number of features \n\n')
+FeaturePlot(object = so, reduction = "tsne", features = 'nFeature_SCT') +
+    theme(legend.position="right", aspect.ratio = 1)
+cat('\n\n')
+
+cat('### Percent mitochondrial reads \n\n')
+FeaturePlot(object = so, reduction = "tsne", features = 'subsets_mito_percent') +
+    theme(legend.position="right", aspect.ratio = 1)
+cat('\n\n')
+
+cat('### egfp \n\n')
+FeaturePlot(object = so, reduction = "tsne", features = 'egfp')+
+    theme(legend.position="right", aspect.ratio = 1)
+cat('\n\n')
+
+cat('### tdtomato \n\n')
+FeaturePlot(object = so, reduction = "tsne", features = 'tdtomato')+
+    theme(legend.position="right", aspect.ratio = 1)
+cat('\n\n')
+```
+
+## UMAP {.tabset .tabset-fade .tabset-pills}
+
+```{r, fig.width = 8, fig.height = 4, message = FALSE}
+so <- RunUMAP(object = so, reduction = "pca", 
+              dims = merged_dims)
+```
+
+
+```{r, fig.width = 7, fig.height = 4, results='asis'}
+
+for (item in layers){
+    cat('### ', item, ' \n\n')
+    print(DimPlot(object = so, reduction = "umap", group.by = item) +
+          ggtitle(item) +
+          theme(legend.position="right", aspect.ratio = 1))
+    cat('\n\n')
+}
+
+cat('### RNA counts \n\n')
+FeaturePlot(object = so, reduction = "umap", features = 'nCount_SCT') +
+    theme(legend.position="right", aspect.ratio = 1)
+cat('\n\n')
+
+cat('### Number of features \n\n')
+FeaturePlot(object = so, reduction = "umap", features = 'nFeature_SCT') +
+    theme(legend.position="right", aspect.ratio = 1)
+cat('\n\n')
+
+cat('### Percent mitochondrial reads \n\n')
+FeaturePlot(object = so, reduction = "umap", features = 'subsets_mito_percent') +
+    theme(legend.position="right", aspect.ratio = 1)
+cat('\n\n')
+
+cat('### egfp \n\n')
+FeaturePlot(object = so, reduction = "umap", features = 'egfp')+
+    theme(legend.position="right", aspect.ratio = 1)
+cat('\n\n')
+
+cat('### tdtomato \n\n')
+FeaturePlot(object = so, reduction = "umap", features = 'tdtomato')+
+    theme(legend.position="right", aspect.ratio = 1)
+cat('\n\n')
+```
+
+
+
+# Integrated {.tabset .tabset-fade .tabset-pills}
+
+
+```{r integration, warning = FALSE, message = FALSE}
+
+sol <- SplitObject(so, split.by = "name")
+rm(so)
+
+
+for (i in 1:length(sol)) {
+    sol[[i]] <- SCTransform(sol[[i]], verbose = FALSE, assay = 'RNA')
+}
+
+features <- SelectIntegrationFeatures(object.list = sol, nfeatures = 2000)
+sol <- PrepSCTIntegration(object.list = sol, anchor.features = features, 
+                          verbose = FALSE)
+
+anchors <- FindIntegrationAnchors(object.list = sol, normalization.method = "SCT", 
+                                  anchor.features = features,
+                                  k.anchor = 5,
+                                  k.filter = 100,
+                                  verbose = FALSE)
+
+so <- IntegrateData(anchorset = anchors, normalization.method = "SCT", 
+                    verbose = FALSE)
+
+rm(sol)
+
+```
+
+
+
+## Loadings 
+
+```{r seuratsplit, message = FALSE, warning = FALSE}
+
+so <- RunPCA(object = so,
+             features = VariableFeatures(so),
+             verbose = FALSE,
+             npcs = 40)
+
+```
+
+```{r, fig.width = 6, fig.height = 8}
+VizDimLoadings(object = so, dims = 1:4)
+```
+
+## Elbow
+
+```{r, fig.width =4, fig.height = 4}
+print(ElbowPlot(object = so, ndims = 40))
+
+```
+
+```{r}
+integrated_dims <- 1:24
+print('update me')
+```
+
+```{r cluster2, message = FALSE}
+
+so <- FindNeighbors(object = so, dims = integrated_dims )
+
+## (resolutions <- seq(0.2, 1.4, by = 0.6))
+resolutions <- 0.2
+
+for (res in resolutions) {
+    so <- FindClusters(object = so, resolution = res)
+}
+
+```
+
+## PCA {.tabset .tabset-fade .tabset-pills}
+
+```{r pcaplot, fig.width = 7, fig.height = 4, results='asis'}
+
+layers <- c("name", "species",
+            grep('snn_res', colnames(so@meta.data), value = TRUE))
+
+for (item in layers){
+
+    cat('### ', item, ' \n\n')
+    print(DimPlot(object = so, reduction = "pca", group.by = item) +
+          ggtitle(item) +
+          theme(legend.position="right", aspect.ratio = 1))
+
+    cat('\n\n')
+}
+
+cat('### RNA counts \n\n')
+FeaturePlot(object = so, reduction = "pca", features = 'nCount_SCT') +
+    theme(legend.position="right", aspect.ratio = 1)
+cat('\n\n')
+
+cat('### Number of features \n\n')
+FeaturePlot(object = so, reduction = "pca", features = 'nFeature_SCT')+
+    theme(legend.position="right", aspect.ratio = 1)
+cat('\n\n')
+
+cat('### Percent mitochondrial reads \n\n')
+FeaturePlot(object = so, reduction = "pca", features = 'subsets_mito_percent')+
+    theme(legend.position="right", aspect.ratio = 1)
+cat('\n\n')
+
+cat('### egfp \n\n')
+FeaturePlot(object = so, reduction = "pca", features = 'egfp')+
+    theme(legend.position="right", aspect.ratio = 1)
+cat('\n\n')
+
+cat('### tdtomato \n\n')
+FeaturePlot(object = so, reduction = "pca", features = 'tdtomato')+
+    theme(legend.position="right", aspect.ratio = 1)
+cat('\n\n')
+```
+
+## tSNEs {.tabset .tabset-fade .tabset-pills}
+
+```{r tsne, fig.width = 8, fig.height = 4}
+
+so <- RunTSNE(object = so, dims.use = integrated_dims , 
+              do.fast = TRUE, seed.use = 111)
+```
+
+```{r tsneplot, fig.width = 7, fig.height = 4, results='asis'}
+
+for (item in layers){               
+
+    cat('### ', item, ' \n\n')
+    print(DimPlot(object = so, reduction = "tsne", group.by = item) +
+          ggtitle(item) +
+          theme(legend.position="right", aspect.ratio = 1))
+    cat('\n\n')
+}
+    
+cat('### RNA counts \n\n')
+FeaturePlot(object = so, reduction = "tsne", features = 'nCount_SCT') +
+    theme(legend.position="right", aspect.ratio = 1)
+cat('\n\n')
+
+cat('### Number of features \n\n')
+FeaturePlot(object = so, reduction = "tsne", features = 'nFeature_SCT') +
+    theme(legend.position="right", aspect.ratio = 1)
+cat('\n\n')
+
+cat('### Percent mitochondrial reads \n\n')
+FeaturePlot(object = so, reduction = "tsne", features = 'subsets_mito_percent') +
+    theme(legend.position="right", aspect.ratio = 1)
+cat('\n\n')
+
+cat('### egfp \n\n')
+FeaturePlot(object = so, reduction = "tsne", features = 'egfp')+
+    theme(legend.position="right", aspect.ratio = 1)
+cat('\n\n')
+
+cat('### tdtomato \n\n')
+FeaturePlot(object = so, reduction = "tsne", features = 'tdtomato')+
+    theme(legend.position="right", aspect.ratio = 1)
+cat('\n\n')
+```
+
+## UMAP {.tabset .tabset-fade .tabset-pills}
+
+```{r umap, fig.width = 8, fig.height = 4, message = FALSE}
+so <- RunUMAP(object = so, reduction = "pca", 
+              dims = integrated_dims )
+```
+
+
+```{r umapplot, fig.width = 7, fig.height = 4, results='asis'}
+
+for (item in layers){
+    cat('### ', item, ' \n\n')
+    print(DimPlot(object = so, reduction = "umap", group.by = item) +
+          ggtitle(item) +
+          theme(legend.position="right", aspect.ratio = 1))
+    cat('\n\n')
+}
+
+cat('### RNA counts \n\n')
+FeaturePlot(object = so, reduction = "umap", features = 'nCount_SCT') +
+    theme(legend.position="right", aspect.ratio = 1)
+cat('\n\n')
+
+cat('### Number of features \n\n')
+FeaturePlot(object = so, reduction = "umap", features = 'nFeature_SCT') +
+    theme(legend.position="right", aspect.ratio = 1)
+cat('\n\n')
+
+cat('### Percent mitochondrial reads \n\n')
+FeaturePlot(object = so, reduction = "umap", features = 'subsets_mito_percent') +
+    theme(legend.position="right", aspect.ratio = 1)
+cat('\n\n')
+
+cat('### egfp \n\n')
+FeaturePlot(object = so, reduction = "umap", features = 'egfp')+
+    theme(legend.position="right", aspect.ratio = 1)
+cat('\n\n')
+
+cat('### tdtomato \n\n')
+FeaturePlot(object = so, reduction = "umap", features = 'tdtomato')+
+    theme(legend.position="right", aspect.ratio = 1)
+cat('\n\n')
+```
+
 
 # Timestamp
 
