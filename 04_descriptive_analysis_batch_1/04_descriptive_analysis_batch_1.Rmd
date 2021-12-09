@@ -283,7 +283,7 @@ coldata$unmod <- coldata$unmod[sample(1:nrow(coldata$unmod), nrow(coldata$unmod)
 plot(coldata$unmod[,c('total_human', 'total_mouse', 'total_alien',
                       'egfp', 'tdtomato')],
      pch = 20, main = 'unmod', cex = 0.5,
-     col = coldata$mod$color)
+     col = coldata$unmod$color)
 ```
 
 ## Human/mouse thresholds
@@ -343,8 +343,8 @@ hist(colData(sce)$human_score, main = 'human scores')
 colData(sce)$species <- 'unknown'
 abline(v = 0.7, col = 'blue') 
 
-colData(sce)[colData(sce)$mouse_score >= 0.7, 'species'] <- 'mouse'
-colData(sce)[colData(sce)$human_score >= 0.7, 'species'] <- 'human'
+colData(sce)[colData(sce)$mouse_score >= 0.8, 'species'] <- 'mouse'
+colData(sce)[colData(sce)$human_score >= 0.8, 'species'] <- 'human'
 
 ```
 
@@ -488,7 +488,7 @@ libsize.drop <- isOutlier(sce$total, nmads = 2, type = "both", log = TRUE,
 feature.drop <- isOutlier(sce$detected, nmads = 2, type = "both", log = TRUE,
                           batch = sce$compound_id)
 mito.drop <- isOutlier(sce$subsets_mito_percent, nmads = 2, type = "higher",
-                       batch = sce$compoiund_iud)
+                       batch = sce$compound_id)
 ## mito.drop.manual <- sce$subsets_mito_percent >= 15
 ## featuresize.drop.manual <- sce$total_features_by_counts < 2000
 
@@ -603,7 +603,7 @@ data.frame(ByLibSize = sum(libsize.drop), ByFeature = sum(feature.drop),
 sce <- subset(sce, , species %in% c('mouse', 'human'))
 ```
 
-# QC after filtering
+# QC after filtering {.tabset .tabset-fade .tabset-pills}
 
 ## Per cell and per feature QC {.tabset .tabset-fade .tabset-pills}
 
@@ -744,7 +744,6 @@ Mind that filtering included: removing outlier cells but also the `unknown` cell
 ```{r}
 plan("multiprocess", workers = NTHREADS)
 options(future.globals.maxSize= 12.0e9)
-
 
 ```
 
@@ -932,9 +931,7 @@ FeaturePlot(object = so, reduction = "umap", features = 'tdtomato')+
 cat('\n\n')
 ```
 
-
 ## Integrated {.tabset .tabset-fade .tabset-pills}
-
 
 ```{r integration, warning = FALSE, message = FALSE}
 
@@ -962,8 +959,6 @@ so <- IntegrateData(anchorset = anchors, normalization.method = "SCT",
 rm(sol)
 
 ```
-
-
 
 ### Loadings 
 
