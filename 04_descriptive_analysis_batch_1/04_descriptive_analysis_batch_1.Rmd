@@ -36,7 +36,7 @@ ID <- '04_descriptive_spectral_batch_1'
 BASE <- file.path('/home', 'imallona')
 WD <- file.path(BASE, 'giulia', ID)
 DATA <- file.path(BASE, 'giulia', 'data')
-DOWNSAMPLE <- TRUE
+DOWNSAMPLE <- FALSE
 
 ## setwd(WD)
 
@@ -319,12 +319,12 @@ rownames(tmp_col) <- tmp_col$cell
 ## tmp_counts[1:5,1:5]
 
 stopifnot(all(colnames(tmp_counts) == rownames(tmp_col)))
-stopifnot(all(rownames(tmp_counts) == rownames(rowdata[[1]])))
+## stopifnot(all(rownames(tmp_counts) == rownames(rowdata[[1]])))
 
 ## to do: better track the gene symbols that were collapsed
-sce <- SingleCellExperiment(list(counts = tmp_counts),
+sce <- SingleCellExperiment(list(counts = as.matrix(tmp_counts)),
                              colData = tmp_col,
-                             rowData = rownames(tmp_counts))
+                            rowData = data.frame(gene_name = rownames(tmp_counts)))
 rm(tmp_counts, tmp_col, d, harm)
 ```
 
@@ -355,6 +355,8 @@ colData(sce)[colData(sce)$human_score >= 0.7, 'species'] <- 'human'
 table(colData(sce)$species, colData(sce)$name)
 ```
 
+# QC before filtering
+
 ## Per cell and per feature QC {.tabset .tabset-fade .tabset-pills}
 
 ```{r qualmetrics, fig.width = 5, fig.height = 4, results = 'asis'}
@@ -365,7 +367,7 @@ sce <- sce[rowSums(counts(sce)) > 0,]
 ## dim(sce)
 ## sce <- calculateQCMetrics(sce)
 ## colnames(colData(sce))
-mt_regex <- '^mt-'
+mt_regex <- '^MT-'
 sce <- addPerCellQC(sce, 
                     subsets = list(mito = grep(mt_regex,
                                                rowData(sce)$gene_name, value = FALSE)))
@@ -417,7 +419,7 @@ sce <- scDblFinder(sce, samples = "name", BPPARAM = MulticoreParam(NTHREADS))
 table(colData(sce)[,c("scDblFinder.class", "compound_id")])
 ```
 
-#### Doublets and singlets, by assigned status
+### Doublets and singlets, by assigned status
 
 Red depicts doublets
 
@@ -430,7 +432,7 @@ plot(as.data.frame(colData(sce)[,c('total_human', 'total_mouse', 'total_alien',
 ```
 
 
-#### Doublets only, by alien
+### Doublets only, by alien
 
 ```{r, fig.width = 6, fig.height = 6}
 
@@ -442,7 +444,7 @@ plot(as.data.frame(colData(curr))[,c('total_human', 'total_mouse', 'total_alien'
      col = colData(curr)$color)
 ```
 
-#### Doublet scores (for doublets only)
+### Doublet scores (for doublets only)
 
 ```{r, fig.width = 6, fig.height = 6}
 
@@ -460,7 +462,7 @@ plot(as.data.frame(colData(curr)[,c('total_human', 'total_mouse', 'total_alien',
 ```
 
 
-#### Singlets only, by alien
+### Singlets only, by alien
 
 ```{r, fig.width = 6, fig.height = 6}
 
@@ -478,7 +480,7 @@ sce <- sce[,sce$scDblFinder.class == "singlet"]
 
 ```
 
-## Quality metrics and outlier detection  {.tabset .tabset-fade .tabset-pills}
+# Quality metrics and outlier detection  {.tabset .tabset-fade .tabset-pills}
 
 ```{r outliers}
 libsize.drop <- isOutlier(sce$total, nmads = 2, type = "both", log = TRUE,
@@ -493,7 +495,7 @@ mito.drop <- isOutlier(sce$subsets_mito_percent, nmads = 2, type = "higher",
 ```
 
 
-### Cells before QC
+## Cells before QC
 
 
 ```{r}
@@ -501,7 +503,7 @@ mito.drop <- isOutlier(sce$subsets_mito_percent, nmads = 2, type = "higher",
 table(colData(sce)$compound_id, useNA = 'always')
 ```
 
-### Overall quality metrics before QC (hist) {.tabset .tabset-fade .tabset-pills}
+## Overall quality metrics before QC (hist) {.tabset .tabset-fade .tabset-pills}
 
 
 ```{r scater_plots_before, results = 'asis'}
@@ -511,7 +513,7 @@ for (id in unique(colData(sce)$compound_id)) {
 
     curr <- subset(sce, , compound_id == id)
     
-    cat('#### ', id, ' \n\n') 
+    cat('### ', id, ' \n\n') 
     hist(curr$total/1e3, xlab="Library sizes (thousands)", main="", 
          breaks=20, col="grey80", ylab="Number of cells")
     abline(v = attr(libsize.drop, 'thresholds')['lower']/1e3, col = 'blue')
@@ -534,14 +536,14 @@ for (id in unique(colData(sce)$compound_id)) {
 
 ```
 
-### Overall quality metrics before QC (scatter) {.tabset .tabset-fade .tabset-pills}
+## Overall quality metrics before QC (scatter) {.tabset .tabset-fade .tabset-pills}
 
 ```{r library_sizes_before, , results = 'asis'}
 for (id in unique(colData(sce)$compound_id)) {
     par(mfrow=c(2,2), mar=c(5.1, 4.1, 0.1, 0.1))
 
     curr <- subset(sce, , compound_id == id)
-    cat('#### ', id, ' \n\n') 
+    cat('### ', id, ' \n\n') 
     
     plot(density(curr$total/1e3),
          xlab = "library sizes (thousands)",
@@ -597,7 +599,40 @@ data.frame(ByLibSize = sum(libsize.drop), ByFeature = sum(feature.drop),
 ```
 
 
-### Overall quality metrics after QC (hists) {.tabset .tabset-fade .tabset-pills}
+```{r removal_of_unknowns, cache = FALSE}
+sce <- subset(sce, , species %in% c('mouse', 'human'))
+```
+
+# QC after filtering
+
+## Per cell and per feature QC {.tabset .tabset-fade .tabset-pills}
+
+```{r qualmetricsafter, fig.width = 5, fig.height = 4, results = 'asis'}
+
+cat('### ', 'Sum vs detected (by name)', ' \n\n')
+plotColData(sce, x = "sum", y="detected", colour_by = c("name"))
+cat('\n\n')
+
+cat('### ', 'Sum vs detected (by species)', ' \n\n')
+plotColData(sce, x = "sum", y="detected", colour_by = c("species"))
+cat('\n\n')
+
+cat('### ', 'Highest expressed', ' \n\n')
+plotHighestExprs(sce, exprs_values = "counts")
+cat('\n\n')
+```
+
+
+```{r varpartafter, fig.width = 4, fig.height = 4, results = 'asis'}
+vars <- getVarianceExplained(sce, variables = c("name", "species"))
+
+cat('### ', 'Variance partitioning', ' \n\n')
+plotExplanatoryVariables(vars)
+cat('\n\n')
+```
+
+
+## Overall quality metrics after QC (hists) {.tabset .tabset-fade .tabset-pills}
 
 ```{r hists_plots_after, results = 'asis'}
 
@@ -606,7 +641,7 @@ for (id in unique(colData(sce)$compound_id)) {
 
     curr <- subset(sce, , compound_id == id)
     
-    cat('#### ', id, ' \n\n') 
+    cat('### ', id, ' \n\n') 
     hist(curr$total/1e3, xlab="Library sizes (thousands)", main="", 
          breaks=20, col="grey80", ylab="Number of cells")
     abline(v = attr(libsize.drop, 'thresholds')['lower']/1e3, col = 'blue')
@@ -629,11 +664,11 @@ for (id in unique(colData(sce)$compound_id)) {
 
 ```
 
-### Overall quality metrics after QC (scatter) {.tabset .tabset-fade .tabset-pills}
+## Overall quality metrics after QC (scatter) {.tabset .tabset-fade .tabset-pills}
 
 ```{r library_sizes_after, , results = 'asis'}
 for (id in unique(colData(sce)$compound_id)) {
-    cat('#### ', id, ' \n\n') 
+    cat('### ', id, ' \n\n') 
     par(mfrow=c(2,2), mar=c(5.1, 4.1, 0.1, 0.1))
 
     curr <- subset(sce, , compound_id == id)
@@ -682,8 +717,8 @@ for (id in unique(colData(sce)$compound_id)) {
 } 
 ```
 
-## After QC pairwise plots
 
+# Dimensions of the filtered dataset
 
 ```{r, fig.height = 6, fig.width = 6}
 ## table(colData(sce)$name, colData(sce)$compound_id, useNA = 'always')
@@ -695,12 +730,12 @@ plot(as.data.frame(colData(sce)[,c('total_human', 'total_mouse', 'total_alien',
 
 ```
 
-# Dimensions of the filtered dataset
-
 ```{r}
 table(colData(sce)$name, colData(sce)$species, useNA = 'always')
 
 ```
+
+Mind that filtering included: removing outlier cells but also the `unknown` cells (with intermediate human/mouse scores).
 
 # Dimred, unsupervised clustering
 
@@ -748,8 +783,7 @@ print(ElbowPlot(object = so, ndims = 40))
 ```
 
 ```{r}
-merged_dims <- 1:24
-print('finetuneme')
+merged_dims <- 1:30
 ```
 
 ```{r, message = FALSE}
@@ -757,7 +791,7 @@ print('finetuneme')
 so <- FindNeighbors(object = so, dims = merged_dims)
 
 ## (resolutions <- seq(0.2, 1.4, by = 0.6))
-resolutions <- 0.2
+resolutions <- 0.1
 
 for (res in resolutions) {
     so <- FindClusters(object = so, resolution = res)
@@ -954,8 +988,7 @@ print(ElbowPlot(object = so, ndims = 40))
 ```
 
 ```{r}
-integrated_dims <- 1:24
-print('update me')
+integrated_dims <- 1:30
 ```
 
 ```{r cluster2, message = FALSE}
@@ -963,7 +996,7 @@ print('update me')
 so <- FindNeighbors(object = so, dims = integrated_dims )
 
 ## (resolutions <- seq(0.2, 1.4, by = 0.6))
-resolutions <- 0.2
+resolutions <- 0.1
 
 for (res in resolutions) {
     so <- FindClusters(object = so, resolution = res)
