@@ -18,15 +18,33 @@ params:
 # Aim
 
 ```
-to do
+Evaluate a human vs mouse, mod vs unmod experiment (Spectral, first run)
 ```
 
 To be run in R 4.1.x with BioC 3.13
 
+# Strategy
+
+```
+- Align to a mouse + human + alien combined genome
+- Use genesymbols shared by mouse and human to generate the count matrix (~20k of them)
+- Run multiple QCs, and standard Seurat (merged and integrated by `name`, i.e. mod vs unmod)
+- Diff expression test based on unsupervised clusters
+```
+
 # Findings
 
 ```
-to do
+- Many cells mapping to both the human and mouse genomes and unusual libsize/num genes detected
+- egfp and tdtomato levels similar across mod and unmod
+- tdtomato data are much more sparse than egfp
+- Many cells with low libsize
+- Doublets more abundant in mod than in unmod
+- Unsupervised clustering detects both mouse vs human and mod vs unmod
+- Much higher mt content in mod human than in others, particularly as coompared to unmod human (?)
+- Cells without any detected tdtomato/egfp expression cluster (according to 'normal' genes) close to those expressing them
+- Almost perfect unsupervised clustering : annotation (mod/unmod or human/mouse) segregation
+- (to be updated)
 ```
 
 # Overview
@@ -228,8 +246,6 @@ for (item in names(d)) {
 ```
 
 
-- Mouse score: reads mapped to mouse / reads in total
-- Human score: reads mapped to human / reads in total
 
 ```{r mouse_human_scores}
 human_pattern <- 'ENSG'
@@ -288,6 +304,10 @@ plot(coldata$unmod[,c('total_human', 'total_mouse', 'total_alien',
 
 ## Human/mouse thresholds
 
+- Mouse score: reads mapped to mouse / reads in total
+- Human score: reads mapped to human / reads in total
+
+
 ```{r sce_object_combined, eval = FALSE}
 for (item in names(d)) {
     coldata[[item]][,'name'] <- item
@@ -321,10 +341,19 @@ rownames(tmp_col) <- tmp_col$cell
 stopifnot(all(colnames(tmp_counts) == rownames(tmp_col)))
 ## stopifnot(all(rownames(tmp_counts) == rownames(rowdata[[1]])))
 
+
+alien_counts <- tmp_counts[rownames(tmp_counts) %in% c('TDTOMATO', 'EGFP'),]
+tmp_counts <- tmp_counts[!rownames(tmp_counts) %in% c('TDTOMATO', 'EGFP'),]
+rownames(alien_counts) <- tolower(rownames(alien_counts))
+
 ## to do: better track the gene symbols that were collapsed
 sce <- SingleCellExperiment(list(counts = as.matrix(tmp_counts)),
                              colData = tmp_col,
                             rowData = data.frame(gene_name = rownames(tmp_counts)))
+
+altExp(sce, "alien") <- SummarizedExperiment(assays = list(counts = alien_counts))
+
+
 rm(tmp_counts, tmp_col, d, harm)
 ```
 
@@ -334,7 +363,7 @@ if (DOWNSAMPLE) {
 }
 ```
 
-```{r binarize_species, fig.height = 4, fig.width = 8}
+```{r binarize_species, fig.height = 3, fig.width = 6}
 THRES <- 0.7
 par(mfrow = c(1,2))
 hist(colData(sce)$mouse_score, main = 'mouse scores')
@@ -1134,10 +1163,44 @@ FeaturePlot(object = so, reduction = "umap", features = 'tdtomato')+
 cat('\n\n')
 ```
 
+# Diff expression (by unsupervised, integrated cluster) {.tabset .tabset-fade .tabset-pills}
+
+
+```{r}
+Idents(so) <- 'integrated_snn_res.0.1'
+markers <- FindAllMarkers(object = so)
+
+top10 <- markers %>% group_by(cluster) %>%
+    top_n(n = 10, wt = avg_log2FC)
+
+```
+
+## Top 10 by cluster
+
+```{r, fig.width = 8, fig.height = 8}
+Idents(so) <- 'integrated_snn_res.0.1'
+DoHeatmap(so, features = top10$gene) + ggtitle('by unsup. cluster')
+```
+
+## Same top 10 but plotting by mod/unmod and species
+
+```{r, fig.width = 8, fig.height = 8}
+Idents(so) <- 'compound_id'
+DoHeatmap(so, features = top10$gene) + ggtitle('by species and name')
+```
+
+## Cross-tabulation
+
+```{r}
+table(so@meta.data$compound_id,
+      so@meta.data$integrated_snn_res.0.1)
+```
+
 # Export
 
 ```{r}
 saveRDS(file = sprintf('%s_sce.rds', ID), object = sce)
+saveRDS(file = sprintf('%s_so.rds', ID), object = so)
 ```
 
 # Timestamp
