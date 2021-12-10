@@ -335,16 +335,17 @@ if (DOWNSAMPLE) {
 ```
 
 ```{r binarize_species, fig.height = 4, fig.width = 8}
+THRES <- 0.7
 par(mfrow = c(1,2))
 hist(colData(sce)$mouse_score, main = 'mouse scores')
-abline(v = 0.7, col = 'blue')
+abline(v = THRES, col = 'blue')
 
 hist(colData(sce)$human_score, main = 'human scores')
 colData(sce)$species <- 'unknown'
-abline(v = 0.7, col = 'blue') 
+abline(v = THRES, col = 'blue') 
 
-colData(sce)[colData(sce)$mouse_score >= 0.8, 'species'] <- 'mouse'
-colData(sce)[colData(sce)$human_score >= 0.8, 'species'] <- 'human'
+colData(sce)[colData(sce)$mouse_score >= THRES, 'species'] <- 'mouse'
+colData(sce)[colData(sce)$human_score >= THRES, 'species'] <- 'human'
 
 ```
 
@@ -488,9 +489,9 @@ libsize.drop <- isOutlier(sce$total, nmads = 2, type = "both", log = TRUE,
 feature.drop <- isOutlier(sce$detected, nmads = 2, type = "both", log = TRUE,
                           batch = sce$compound_id)
 mito.drop <- isOutlier(sce$subsets_mito_percent, nmads = 2, type = "higher",
-                       batch = sce$compound_id)
+                       batch = sce$compound_id, log = FALSE)
 ## mito.drop.manual <- sce$subsets_mito_percent >= 15
-## featuresize.drop.manual <- sce$total_features_by_counts < 2000
+libsize.drop.manual <- sce$total < 5000
 
 ```
 
@@ -516,21 +517,21 @@ for (id in unique(colData(sce)$compound_id)) {
     cat('### ', id, ' \n\n') 
     hist(curr$total/1e3, xlab="Library sizes (thousands)", main="", 
          breaks=20, col="grey80", ylab="Number of cells")
-    abline(v = attr(libsize.drop, 'thresholds')['lower']/1e3, col = 'blue')
-    abline(v = attr(libsize.drop, 'thresholds')['higher']/1e3, col = 'blue')
+    abline(v = attr(libsize.drop, 'thresholds')['lower', id]/1e3, col = 'blue')
+    abline(v = attr(libsize.drop, 'thresholds')['higher', id]/1e3, col = 'blue')
 
     hist(curr$detected, xlab="Number of expressed genes", main="", 
          breaks=20, col="grey80", ylab="Number of cells")
-    abline(v = attr(feature.drop, 'thresholds')['lower'], col = 'blue')
-    abline(v = attr(feature.drop, 'thresholds')['higher'], col = 'blue')
+    abline(v = attr(feature.drop, 'thresholds')['lower', id], col = 'blue')
+    abline(v = attr(feature.drop, 'thresholds')['higher', id], col = 'blue')
 
     ## hist(curr$altexps_spikes_percent, xlab="ERCC proportion (%)",
     ##      ylab="Number of cells", breaks=20, main="", col="grey80")
-    ## abline(v = attr(spike.drop, 'thresholds')['higher'], col = 'blue')
+    ## abline(v = attr(spike.drop, 'thresholds')['higher', id], col = 'blue')
 
     hist(curr$subsets_mito_percent, xlab="Mitochondrial proportion (%)", 
          ylab="Number of cells", breaks=20, main="", col="grey80")
-    abline(v = attr(mito.drop, 'thresholds')['higher'], col = 'blue')
+    abline(v = attr(mito.drop, 'thresholds')['higher', id], col = 'blue')
     cat('\n\n')
 }
 
@@ -592,8 +593,9 @@ for (id in unique(colData(sce)$compound_id)) {
 ## Detected outliers
 
 ```{r}
-sce <- sce[,!(libsize.drop | feature.drop | mito.drop)]
-data.frame(ByLibSize = sum(libsize.drop), ByFeature = sum(feature.drop), 
+sce <- sce[,!(libsize.drop | feature.drop | mito.drop | libsize.drop.manual)]
+data.frame(ByLibSize = sum(libsize.drop | libsize.drop.manual),
+           ByFeature = sum(feature.drop), 
            ByMito= sum(mito.drop),
            Remaining = ncol(sce))
 ```
@@ -644,21 +646,21 @@ for (id in unique(colData(sce)$compound_id)) {
     cat('### ', id, ' \n\n') 
     hist(curr$total/1e3, xlab="Library sizes (thousands)", main="", 
          breaks=20, col="grey80", ylab="Number of cells")
-    abline(v = attr(libsize.drop, 'thresholds')['lower']/1e3, col = 'blue')
-    abline(v = attr(libsize.drop, 'thresholds')['higher']/1e3, col = 'blue')
+    abline(v = attr(libsize.drop, 'thresholds')['lower', id]/1e3, col = 'blue')
+    abline(v = attr(libsize.drop, 'thresholds')['higher', id]/1e3, col = 'blue')
 
     hist(curr$detected, xlab="Number of expressed genes", main="", 
          breaks=20, col="grey80", ylab="Number of cells")
-    abline(v = attr(feature.drop, 'thresholds')['lower'], col = 'blue')
-    abline(v = attr(feature.drop, 'thresholds')['higher'], col = 'blue')
+    abline(v = attr(feature.drop, 'thresholds')['lower', id], col = 'blue')
+    abline(v = attr(feature.drop, 'thresholds')['higher', id], col = 'blue')
 
     ## hist(curr$altexps_spikes_percent, xlab="ERCC proportion (%)",
     ##      ylab="Number of cells", breaks=20, main="", col="grey80")
-    ## abline(v = attr(spike.drop, 'thresholds')['higher'], col = 'blue')
+    ## abline(v = attr(spike.drop, 'thresholds')['higher', id], col = 'blue')
 
     hist(curr$subsets_mito_percent, xlab="Mitochondrial proportion (%)", 
          ylab="Number of cells", breaks=20, main="", col="grey80")
-    abline(v = attr(mito.drop, 'thresholds')['higher'], col = 'blue')
+    abline(v = attr(mito.drop, 'thresholds')['higher', id], col = 'blue')
     cat('\n\n')
 }
 
