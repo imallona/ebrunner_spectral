@@ -1,0 +1,326 @@
+---
+title: "Troubleshooting batch 2"
+author: "Izaskun Mallona, Mark D. Robinson lab, UZH"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+    code_download: true
+    number_sections: true
+    df_print: kable
+    theme: lumen
+params:
+  seed: 665
+---
+
+
+# Aim
+
+```
+
+```
+
+To be run in R 4.1.x with BioC 3.13
+
+# Strategy
+
+```
+
+```
+
+# Findings
+
+```
+
+```
+
+# Overview
+
+```{r}
+ID <- '05_troubleshooting_batch_2'
+BASE <- file.path('/home', 'gmoro')
+WD <- file.path(BASE, 'giulia', ID)
+DATA <- file.path(BASE, 'mapping_second_scRNAseq_exp')
+DOWNSAMPLE <- FALSE
+
+## setwd(WD)
+
+NTHREADS <- 10
+```
+
+```{r settings, include = TRUE}
+suppressPackageStartupMessages({
+    ## ## library(paletteer)
+    ## library(RColorBrewer)
+    library(knitr)
+    ## library(Seurat)
+    ## library(scater)
+    library(data.table)
+    ## library(SingleCellExperiment)
+    ## library(scran)
+    ## ## library(org.Hs.eg.db)
+    ## library(dplyr)
+    ## library(DT)
+    ## library(pheatmap)
+    ## library(Cairo)
+    ## library(RColorBrewer)
+    ## library(future)
+    ## library(biomaRt)
+    ## library(BiocParallel)
+    ## library(future)
+    ## library(scDblFinder)
+    ## library(scSorter)
+    ## library(intrinsicDimension)
+})
+
+opts_chunk$set(fig.width = 5,
+               fig.height = 5,
+               cache = TRUE,
+               include = TRUE,
+               dev = "png",
+               cache.lazy = FALSE,
+               warning = TRUE,
+               message = TRUE)
+
+## plan("multiprocess", workers = NTHREADS)
+## options(future.globals.maxSize= 1.4e9)
+
+options(bitmapType='cairo')
+```
+
+
+```{r functions}
+## add alpha
+ac <- function(col, alpha=1){
+  apply(sapply(col, col2rgb)/255, 2, 
+                     function(x) 
+                       rgb(x[1], x[2], x[3], alpha=alpha))  
+}
+```
+
+```{r}
+runs <- c('files_mod_ORF', 'files_unmod_ORF')
+qcs <- c('.*UMIcounts.txt', '.*readspercell.txt', '.*BCstats.txt', '*kept_barcodes.txt')
+d <- list()
+for (run in runs) {
+    d[[run]] <- list()
+    for (qc in qcs) {
+        fn <- list.files(file.path(DATA, run), pattern = qc, recursive = TRUE)
+        d[[run]][[qc]] <- data.table::fread(file = file.path(DATA, run, fn[!grepl('whitelist', fn)]),
+                                            nrows = ifelse(DOWNSAMPLE, yes = 1e5, no = Inf))
+        
+    }
+
+    names(d[[run]]) <- gsub('.txt', '', names(d[[run]]))    
+    names(d[[run]]) <- gsub('*', '', names(d[[run]]), fixed = TRUE)
+    names(d[[run]]) <- gsub('.', '', names(d[[run]]), fixed = TRUE)
+}
+
+names(d[[1]])
+
+```
+
+## UMI counts per sample
+
+```{r}
+
+par(pty = 's')
+## help(plot)
+## sort by num UMIs per barcode
+for (run in names(d)) {
+    d[[run]]$UMIcounts <- d[[run]]$UMIcounts[order(d[[run]]$UMIcounts$Count, decreasing = TRUE),]
+
+    ## intron+exon is redundant and misleading, better use them separately
+    d[[run]]$UMIcounts <- d[[run]]$UMIcounts[d[[run]]$UMIcounts$type %in%
+                                            c('Exon', 'Intron'),]
+}
+
+ylim <- c(0, max(sapply(d, function(x) max(x$UMIcounts$Count))))
+xlim <- c(0, max(sapply(d, function(x) nrow(x$UMIcounts))))
+
+plot(y = d[[1]]$UMIcounts$Count, x = 1:length(d[[1]]$UMIcounts$Count),
+     col = as.numeric(as.factor(d[[1]]$UMIcounts$type)),
+     pch = 1,
+     ylim = ylim,
+     xlim = xlim,
+     main = 'UMIcounts',
+     ylab = 'num UMIs',
+     xlab = 'cell barcode (index)')
+
+i <- 2
+for (run in names(d)[2:length(d)]) {
+    ## plot the pareto or whatever
+    points(y = d[[run]]$UMIcounts$Count,
+           x = 1:length(d[[run]]$UMIcounts$Count),
+         col = as.numeric(as.factor(d[[run]]$UMIcounts$type)),
+         pch = i)
+    i <- i +1
+
+}
+
+legend(x = 13e3,
+       y = 1e5,
+       legend = levels(as.factor(d[[run]]$UMIcounts$type)),
+       pch = 19,
+       col = 1:nlevels(as.factor(d[[run]]$UMIcounts$type)),
+       bty = "n")
+
+legend(x = 5000, y = 1e5,
+       legend = names(d),
+       pch = 1:length(d),
+       bty = "n")
+```
+
+## Reads per cell per sample
+
+
+```{r}
+par(pty = 's')
+for (run in names(d)) {
+    d[[run]]$readspercell <- d[[run]]$readspercell[order(d[[run]]$readspercell$N, decreasing = TRUE),]
+    ## d[[run]]$readspercell <- d[[run]]$readspercell[d[[run]]$readspercell$type %in%
+                                            ## c('Exon', 'Intron'),]
+}
+
+ylim <- c(0, max(sapply(d, function(x) max(log10(x$readspercell$N)))))
+xlim <- c(0, max(sapply(d, function(x) nrow(x$readspercell))))
+
+plot(y = log10(d[[1]]$readspercell$N), x = 1:length(d[[1]]$readspercell$N),
+     col = as.numeric(as.factor(d[[1]]$readspercell$type)),
+     pch = 1,
+     ylim = ylim,
+     xlim = xlim,
+     ylab = 'log10 reads per cell',
+     xlab = 'cell barcode (index)',
+     main = 'reads per cell')
+
+i <- 2
+for (run in names(d)[2:length(d)]) {
+    ## plot the pareto or whatever
+    points(y = log10(d[[run]]$readspercell$N),
+           x = 1:length(d[[run]]$readspercell$N),
+         col = as.numeric(as.factor(d[[run]]$readspercell$type)),
+         pch = i)
+    i <- i +1
+
+}
+
+legend(x = 35e3,
+       y = 6,
+       legend = levels(as.factor(d[[run]]$readspercell$type)),
+       pch = 19,
+       col = 1:nlevels(as.factor(d[[run]]$readspercell$type)),
+       bty = "n")
+
+legend(x = 35e3, y = 7,
+       legend = names(d),
+       pch = 1:length(d),
+       bty = "n")
+```
+
+## BC stats per sample
+
+```{r}
+par(pty = 's')
+
+for (run in names(d)) {
+    d[[run]]$BCstats <- d[[run]]$BCstats[order(d[[run]]$BCstats$V2, decreasing = TRUE),]
+    ## d[[run]]$BCstats <- d[[run]]$BCstats[d[[run]]$BCstats$type %in%
+                                            ## c('Exon', 'Intron'),]
+}
+
+ylim <- c(0, max(sapply(d, function(x) max(x$BCstats$V2))))
+xlim <- c(0, max(sapply(d, function(x) log10(nrow(x$BCstats)))))
+
+plot(y = d[[1]]$BCstats$V2,
+     x = log10(1:length(d[[1]]$BCstats$V2)),
+     col = 'black',
+     pch = 1,
+     ylim = ylim,
+     xlim = xlim,
+     ylab = 'BCstats',
+     xlab = 'log 10 cell barcode (index)',
+     main = 'BCstats')
+
+i <- 2
+for (run in names(d)[2:length(d)]) {
+    ## plot the pareto or whatever
+    points(y = d[[run]]$BCstats$V2,
+           x = log10(1:length(d[[run]]$BCstats$V2)),
+         col = 'black',
+         pch = i)
+    i <- i +1
+}
+
+## legend(x = 35e3,
+##        y = 6,
+##        legend = levels(as.factor(d[[run]]$BCstats$type)),
+##        pch = 19,
+##        col = 1:nlevels(as.factor(d[[run]]$BCstats$type)),
+##        bty = "n")
+
+legend('topright',
+       legend = names(d),
+       pch = 1:length(d),
+       bty = "n")
+
+```
+
+## Kept barcodes per sample
+
+```{r}
+
+ylim <- c(0, max(sapply(d, function(x) max(x$kept_barcodes$n))))
+xlim <- c(0, max(sapply(d, function(x) nrow(x$kept_barcodes))))
+
+plot(y = d[[1]]$kept_barcodes$n,
+     x = 1:length(d[[1]]$kept_barcodes$n),
+     col = 'black',
+     pch = 1,
+     ylim = ylim,
+     xlim = xlim,
+     ylab = 'kept_barcodes',
+     xlab = 'log 10 cell barcode (index)',
+     main = 'kept_barcodes')
+
+i <- 2
+for (run in names(d)[2:length(d)]) {
+    ## plot the pareto or whatever
+    points(y = d[[run]]$kept_barcodes$n,
+           x = 1:length(d[[run]]$kept_barcodes$n),
+         col = 'black',
+         pch = i)
+    i <- i +1
+}
+
+## legend(x = 35e3,
+##        y = 6,
+##        legend = levels(as.factor(d[[run]]$kept_barcodes$type)),
+##        pch = 19,
+##        col = 1:nlevels(as.factor(d[[run]]$kept_barcodes$type)),
+##        bty = "n")
+
+legend('topright',
+       legend = names(d),
+       pch = 1:length(d),
+       bty = "n")
+
+```
+
+# Export
+
+```{r}
+
+```
+
+# Timestamp
+
+```{r sessionInfo2, cache = FALSE}
+date()
+sessionInfo()
+devtools::session_info()
+system('uname -a')
+system('whoami')
+```

@@ -5,33 +5,38 @@
 ## Izaskun Mallona
 ## 20 Sept 2021
 
-FA=Mus_musculus.GRCm38.dna.primary_assembly.fa
+FA=GRCm38.p6.genome.fa
 GTF=gencode.vM25.annotation.gtf
 NTHREADS=20
 ID=GRCm38_gencode_M25
-
-wget http://ftp.ensembl.org/pub/release-102/fasta/mus_musculus/dna/"$FA".gz
-wget http://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M25/"$GTF".gz
+STAR=/home/imallona/soft/star/bin/STAR
 
 mkdir -p ~/giulia/indices
 cd "$_"
 
-## installs
-cd ~/indices
+
+wget http://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M25/"$FA".gz
+wget http://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M25/"$GTF".gz
+
+
+cd ~/giulia/indices
   
 mkdir -p "$ID"
 
 pigz --decompress -p "$NTHREADS" "$GTF".gz
 pigz --decompress -p "$NTHREADS" "$FA".gz
 
-sed -i 's/>/>chr/g' "$FA" 
+# $STAR --runThreadN "$NTHREADS" \
+#         --runMode genomeGenerate \
+#         --genomeDir "$ID" \
+#         --genomeFastaFiles "$FA" \
+#         --sjdbGTFfile "$GTF" \
+#         --sjdbOverhang 59 # 61
 
-STAR --runThreadN "$NTHREADS" \
-        --runMode genomeGenerate \
-        --genomeDir "$ID" \
-        --genomeFastaFiles "$FA" \
-        --sjdbGTFfile "$GTF" \
-        --sjdbOverhang 61
+$STAR --runMode genomeGenerate \
+      --runThreadN "$NTHREADS" \
+      --genomeDir "$ID" \
+      --genomeFastaFiles "$FA"
 
 pigz -p "$NTHREADS" "$FA" ;
 pigz -p "$NTHREADS" "$GTF"
