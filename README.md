@@ -1,10 +1,28 @@
 # Aim
 
-Erich Brunner's and Giulia Moro's spectral probe designer prototype
+Erich Brunner's and Giulia Moro's spectral project:
+- probe designer
+- probe designer app (under development)
+- zUMIs analyzer
 
 # Methods
 
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vestibulum tincidunt sollicitudin magna ut pharetra. Suspendisse molestie libero diam, ut semper lorem porta ac. Aliquam erat volutpat. Fusce laoreet iaculis sollicitudin. Pellentesque aliquet faucibus vestibulum. In pulvinar volutpat leo sit amet consectetur. Duis pulvinar vehicula maximus.
+## Probe designer
+
+Lorem ipsum dolor sit amet
+
+## Assemblies / GTF versions
+
+Lorem ipsum dolor sit amet
+
+## zUMIs
+
+- Runs under `03_zumis/yaml/batch_1/no_barcodes_hm_0` are run without providing a barcodes' whitelist and with a Hamming Distance of 0 (i.e. no CB collapsing). In these runs, barcodes are assumed to be 9-spacer-9-spacer-9 followed by a 8nt-long UMI:
+
+```
+- BC(1-9,22-30,44-52)
+- UMI(53-60)
+```
 
 # Repository structure
 
@@ -12,11 +30,13 @@ Developing at branch `develop` with occasional merges to `master`.
 
 - `01_proof_of_concept`: PoC for probe design (bash and Rmd)
 - `02_browser`: genome browser trakcs generator / probe design (bash)
-- `03_zumis`: utils to run zUMIs on the data
+- `03_zumis`: utils to run zUMIs on the data, including the YAML files
 
 # Notes/reminders
 
-Index genomes with cDNA readlength -1 `--sjdbOverhang`, as required by zUMIs mapping.
+Currently being run in imlssherborne.uzh.ch.
+
+Mind that that zUMIs and zUMIs dependencies are installed using `soft_installs.sh`.
 
 # Started
 
