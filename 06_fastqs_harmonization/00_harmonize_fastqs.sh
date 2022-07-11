@@ -25,3 +25,58 @@ DATA=/home/gmoro/fastqs_six_scRNAseq
 
 mkdir -p $WD; cd $WD
 zcat "$DATA"/20220629.B-o2875511-SPECTRAL_1_R1.fastq.gz | head -100 > test.fq
+
+
+# what about chunking each R1/R2 file into a multiple-of-4 number of lines, and then running the parsing script?
+
+zcat r1.fastq.gz | split - -l 100000 --filter='gzip > $FILE.r1.gz' part.
+zcat r2.fastq.gz | split - -l 100000 --filter='gzip > $FILE.r2.gz' part.
+
+for r1 in $(find . -name "part.*.r1.gz")
+do
+    echo $r1
+    curr=$(basename $r1 .r1.gz)
+    r2="$curr".r2.gz
+    echo $r2
+
+    Rscript ~/src/ebrunner_spectral/06_fastqs_harmonization/01_harmonize_fastqs.R \
+            -r1 "$r1" \
+            -r2 "$r2" \
+            -o delete_me_chunked
+done
+
+## ok, now parallelize this - 30 cores
+
+N=30
+
+(
+    for r1 in $(find . -name "part.*.r1.gz" | xargs -n"$N") 
+    do 
+        ((i=i%N)); ((i++==0)) && wait
+        echo $r1
+        curr=$(basename $r1 .r1.gz)
+        r2="$curr".r2.gz
+        echo $r2
+    
+        echo $i
+        
+        Rscript ~/src/ebrunner_spectral/06_fastqs_harmonization/01_harmonize_fastqs.R \
+            -r1 "$r1" \
+            -r2 "$r2" \
+            -o delete_me_chunked/"$curr" &
+
+    done
+)
+
+mkdir -p output
+
+for item in non_matching AATG_CCAC_linkers GTGA_GACA_linkers
+do
+    find delete_me_chunked -name "$item*R2.fastq.gz" | sort | xargs zcat | \
+        gzip -c > output/grouped_"$item"_R2.fastq.gz
+    find delete_me_chunked -name "$item*R1.fastq.gz" | sort | xargs zcat | \
+        gzip -c > output/grouped_"$item"_R1.fastq.gz
+done
+
+rm *part*gz
+rm -rf delete_me_chunked

@@ -74,7 +74,7 @@ if (args$read1 != 'none' | args$read2 != 'none') {
 }
 
 
-dir.create(args$output, showWarnings = FALSE)
+dir.create(args$output, showWarnings = FALSE, recursive = TRUE)
 
 regex <- '([ACTGN]{0,3})([ACTGN]{9})(GTGA|AATG{1})([ACTGN]{9})(GACA|CCAC){1}([ACTGN]{9})([ACTGN]{8})(.*)'
 
@@ -228,4 +228,4 @@ process_stanzas(barcode_fn = args$read1,
                 output_dir = args$output,
                 regex = regex)
 
-cat(sprintf('End\t%s\n', Sys.time()))
+cat(sprintf('End %s\t%s\n', args$output, Sys.time()))
