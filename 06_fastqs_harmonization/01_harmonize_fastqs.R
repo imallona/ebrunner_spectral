@@ -39,7 +39,7 @@
 ##
 ## 04 July 2022
 
-.libPaths('/home/imallona/R/R4_bioc314')
+## .libPaths('/home/imallona/R/R4_bioc314')
 
 suppressPackageStartupMessages({
     library("argparse")
