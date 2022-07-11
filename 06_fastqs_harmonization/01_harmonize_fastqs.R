@@ -8,19 +8,18 @@
 ##   - AATG_CCAC_linkers.fastq.gz, the TSO probes
 ##
 ## Usage:
-## $ Rscript 01_harmonize_fastqs.R -f test.fastq.gz -o gmoro
-## [1] "Processing test.fastq.gz at gmoro"
-
 ## $ Rscript 01_harmonize_fastqs.R --help
-## usage:01_harmonize_fastqs.R
-##        [-h] [-f fastq] [-o fastq]
+## usage: 01_harmonize_fastqs.R [-h] [-r1 r1] [-r2 r2] [-o output]
 
 ## optional arguments:
 ##   -h, --help            show this help message and exit
-##   -f fastq, --fastq fastq
-##                         Path to the R1 fastq file (gz compressed)
+##   -r1 r1, --read1 r1    Path to the R1 fastq file (gz compressed); this file
+##                         contains the barcodes
+##   -r2 r2, --read2 r2    Path to the R2 fastq file (gz compressed); this file
+##                         contains the cDNA
 ##   -o output, --output output
-##                         Output folder name (creates the folder and overwrites content)
+##                         Output folder name (creates the folder and overwrites
+##                         content)
 
 ##  rationale: reads are a mixture of:
 ##  empty - seq1 9nt - linker1 4nt -  seq2 9nt - linker2 4nt - seq3 9nt - UMI 8 nt - T 25nt
@@ -48,9 +47,13 @@ suppressPackageStartupMessages({
 
 parser <- ArgumentParser()
 
-parser$add_argument("-f", "--fastq", type="character", default='none',
-                    help="Path to the R1 fastq file (gz compressed)",
-                    metavar="fastq")
+parser$add_argument("-r1", "--read1", type="character", default='none',
+                    help="Path to the R1 fastq file (gz compressed); this file contains the barcodes",
+                    metavar="r1")
+
+parser$add_argument("-r2", "--read2", type="character", default='none',
+                    help="Path to the R2 fastq file (gz compressed); this file contains the cDNA",
+                    metavar="r2")
 
 parser$add_argument("-o", "--output", type="character", default='output',
                     help="Output folder name (creates the folder and overwrites content)",
@@ -61,11 +64,15 @@ tryCatch({
 }, error = function(x) parser$print_help())
 
 
-if ((args$fastq != 'none')) {
-    print(sprintf('Processing %s at %s', args$fastq, args$output))
+if (args$read1 != 'none' | args$read2 != 'none') {
+    cat(sprintf('Processing started \t%s\n   R1: %s\n   R2: %s\n   Output folder: %s\n',
+                Sys.time(),
+                args$read1, args$read2, args$output))
 } else {
     parser$print_help()
+    stop('Malformed command, fastqs missing')
 }
+
 
 dir.create(args$output, showWarnings = FALSE)
 
@@ -122,7 +129,7 @@ tokenize_stanza <- function(original_stanza, regex) {
 ## original stanza is the original fastq, a string `\n` separated
 ## x is the result of capturing the regex groups
 reconstruct_stanza <- function(original_stanza, x) {
-    trimmed_stanza <- sprintf('%s\n%s\n%s\n%s\n',
+    trimmed_stanza <- sprintf('%s\n%s\n%s\n%s',
                               original_stanza[1],
                               x$seq_trimmed,
                               original_stanza[3],
@@ -130,68 +137,95 @@ reconstruct_stanza <- function(original_stanza, x) {
     return(trimmed_stanza)
 }
 
-## being orignal_stanza a fastq stanza (4 lines, `\n` separeted)
-## x is the result of capturing the regex groups
-sort_reads_by_regex_match <- function(original_stanza, x, output_dir) {
+## original_stanza a barcode fastq stanza (4 lines, `\n` separeted)
+## original-cdna, the matching cDNA fastq stanza
+## x is the tokenized result after capturing the regex groups
+## output_dir the output directory path
+sort_reads_by_regex_match <- function(original_stanza, original_cdna, x, output_dir) {
     ## Split reads into two buckets: TSO and not TSO.
     ## We do that according to the link1 and link2 sequences, and not checking whether the tail looks good or not
     ##   (even though TSO should have TSO seqs, and non TSO should have a polymer of Ts)
 
     ## the read does not match the regex
     if (any(is.na(x))) {
-        write(original_stanza, file = file.path(output_dir, 'non_matching.fastq'), append = TRUE)
+        write(original_stanza, file = file.path(output_dir, 'non_matching_R1.fastq'), append = TRUE)
+        write(original_cdna, file = file.path(output_dir, 'non_matching_R2.fastq'), append = TRUE)
     }
     else {
         if (x$link1 == 'GTGA' & x$link2 == 'GACA') {
             ## read belongs to bucket oligodT (we don't check the tail)
             write(reconstruct_stanza(x = x, original_stanza = original_stanza),
-                  file = file.path(output_dir, 'GTGA_GACA_linkers.fastq'), append = TRUE)
+                  file = file.path(output_dir, 'GTGA_GACA_linkers_R1.fastq'), append = TRUE)
+
+            write(original_cdna,
+                  file = file.path(output_dir, 'GTGA_GACA_linkers_R2.fastq'), append = TRUE)
         }
         else if (x$link1 == 'AATG' & x$link2 == 'CCAC') {
             ## read belongs to bucket TSO (we don't check the tail)
             write(reconstruct_stanza(x = x, original_stanza = original_stanza),
-                  file = file.path(output_dir, 'AATG_CCAC_linkers.fastq'), append = TRUE)
+                  file = file.path(output_dir, 'AATG_CCAC_linkers_R1.fastq'), append = TRUE)
+
+            write(original_cdna,
+                  file = file.path(output_dir, 'AATG_CCAC_linkers_R2.fastq'), append = TRUE)
         }
         else{
             ## read matches the regex but the two linkers are not as expected (?)
             ## this use case might not be needed
-            write(original_stanza, file = file.path(output_dir, 'non_matching.fastq'), append = TRUE)
+            write(original_stanza, file = file.path(output_dir, 'non_matching_R1.fastq'), append = TRUE)
+            write(original_cdna, file = file.path(output_dir, 'non_matching_R2.fastq'), append = TRUE)
         }
     }
 }
 
 ## iterates over each stanza from a fastq gz connection
-process_stanzas <- function(fastq_gz, output_dir, regex) {
+process_stanzas <- function(barcode_fn, cdna_fn, output_dir, regex) {
     ## the input filehandle
-    fh <- gzfile(fastq_gz, 'r')
+    fh <- gzfile(barcode_fn, 'r')
+    cdna_fh <- gzfile(cdna_fn, 'r')
 
-    ## the output 
-    nonmatching <- file(file.path(output_dir, 'non_matching.fastq'), 'w')
-    dt <- file(file.path(output_dir, 'GTGA_GACA_linkers.fastq'), 'w')
-    tso <- file(file.path(output_dir, 'AATG_CCAC_linkers.fastq'), 'w')
+    ## the output files (barcodes, R1-like)
+    nonmatching <- file(file.path(output_dir, 'non_matching_R1.fastq'), 'w')
+    dt <- file(file.path(output_dir, 'GTGA_GACA_linkers_R1.fastq'), 'w')
+    tso <- file(file.path(output_dir, 'AATG_CCAC_linkers_R1.fastq'), 'w')
 
+    ## the output cDNA files (R2)
+    nonmatching_cdna <- file(file.path(output_dir, 'non_matching_R2.fastq'), 'w')
+    dt_cdna <- file(file.path(output_dir, 'GTGA_GACA_linkers_R2.fastq'), 'w')
+    tso_cdna <- file(file.path(output_dir, 'AATG_CCAC_linkers_R2.fastq'), 'w')
+    
     while (TRUE) {
-        original_stanza <- readLines(fh, n = 4)
-        if (length(original_stanza) == 0) {
+        original_barcode <- readLines(fh, n = 4)
+        original_cdna <- readLines(cdna_fh, n = 4)
+        
+        if (length(original_barcode) == 0 | length(original_cdna) == 0) {
             break
         }
         
-        sort_reads_by_regex_match(original_stanza = original_stanza,
-                                  x = tokenize_stanza(original_stanza = original_stanza, regex = regex),
+        sort_reads_by_regex_match(original_stanza = original_barcode,
+                                  original_cdna = original_cdna,
+                                  x = tokenize_stanza(original_stanza = original_barcode, regex = regex),
                     output_dir = output_dir)
     }
+    
     close(fh)
+    close(cdna_fh)
 
     ## compress the fastq outputs
-    for (item in c('nonmatching', 'dt', 'tso')) {
+    for (item in c('nonmatching', 'dt', 'tso', 'nonmatching_cdna', 'dt_cdna', 'tso_cdna')) {
         close(get(item))
     }
     
     ## compress the fastq outputs
-    for (item in c('non_matching.fastq', 'GTGA_GACA_linkers.fastq', 'AATG_CCAC_linkers.fastq')) {
+    for (item in c('non_matching_R1.fastq', 'GTGA_GACA_linkers_R1.fastq', 'AATG_CCAC_linkers_R1.fastq',
+                   'non_matching_R2.fastq', 'GTGA_GACA_linkers_R2.fastq', 'AATG_CCAC_linkers_R2.fastq')) {
         ## close(file.path(output_dir, item))
         gzip(file.path(output_dir, item), ext = 'gz', overwrite = TRUE)
     }
 }
 
-process_stanzas(fastq_gz = args$fastq, output_dir = args$output, regex = regex)
+process_stanzas(barcode_fn = args$read1,
+                cdna_fn = args$read2, 
+                output_dir = args$output,
+                regex = regex)
+
+cat(sprintf('End\t%s\n', Sys.time()))
