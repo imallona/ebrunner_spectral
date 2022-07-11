@@ -19,7 +19,7 @@
 ##   -h, --help            show this help message and exit
 ##   -f fastq, --fastq fastq
 ##                         Path to the R1 fastq file (gz compressed)
-##   -o fastq, --output fastq
+##   -o output, --output output
 ##                         Output folder name (creates the folder and overwrites content)
 
 ##  rationale: reads are a mixture of:
@@ -54,7 +54,7 @@ parser$add_argument("-f", "--fastq", type="character", default='none',
 
 parser$add_argument("-o", "--output", type="character", default='output',
                     help="Output folder name (creates the folder and overwrites content)",
-                    metavar="fastq")
+                    metavar="output")
 
 tryCatch({
     args <- parser$parse_args()
