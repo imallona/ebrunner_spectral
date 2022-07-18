@@ -50,7 +50,8 @@ zcat "$DATA"/20220629.B-o2875511-SPECTRAL_1_R2.fastq.gz  | split - -l "$NLINES" 
 N=32
 
 (
-    for r1 in $(find . -name "part.*.r1.gz" | xargs -n"$N") 
+    # for r1 in $(find . -name "part.*.r1.gz" | xargs -n"$N")
+    for r1 in $(find . -name "part.dk.r1.gz" | xargs -n"$N") 
     do 
         ((i=i%N)); ((i++==0)) && wait
         echo $r1
