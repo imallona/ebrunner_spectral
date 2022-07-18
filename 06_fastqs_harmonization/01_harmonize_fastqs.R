@@ -78,55 +78,118 @@ dir.create(args$output, showWarnings = FALSE, recursive = TRUE)
 
 regex <- '([ACTGN]{0,3})([ACTGN]{9})(GTGA|AATG{1})([ACTGN]{9})(GACA|CCAC){1}([ACTGN]{9})([ACTGN]{8})(.*)'
 
+alt_regex <- '([ACTGN]{0,3})([ACTGN]{9})([ATCGN]{4})([ACTGN]{9})([ATCGN]{4})([ACTGN]{9})([ACTGN]{8})(TATGC[ACTGN]+$|TTTT[ACTGN]+$)'
+
+restrictive_regex <- '([ACTGN]{0,3})([ACTGN]{9})(GTGA|AATG{1})([ACTGN]{9})(GACA|CCAC){1}([ACTGN]{9})([ACTGN]{8})([ACTGN]?TATGC[ACTGN]+$|[ACTGN]?TTTTT[ACTGN]+$)'
+
 ## this is just for finetuning the regex; commented out
 if (FALSE) {
     test1 <- c('TNAATGTAATGGGTGAACGACCACCGACAAAGGGAACTTCTTGATGTTTTTTTTTTTTTT',
                'CNCATTGCAAATGAATCCTGAACCACTTCAGCTCAGTTAAATATATGCGTAGGAGGTATG',
-               'GNACACACAAAGTGAAGATAGTTCGACAACACCTTAGCTGCTTACTTTTTTTGTTTTTTT',
+               'GNACACACAAAGTGTAGATAGTTCGACAACACCTTAGCTGCTTACTTTTTTTGTTTTTTT',
                'ANTTAGATGAATGCAGAAATCGCCACGATGGTCCACAGTTTCTTATGCCTACAACCGATG')
-
-    test2 <- c('@A01251:431:H33CTDRX2:1:2101:30264:1016 1:N:0:GCTACGCT',
-               'TNATAGCTTGTAGTGAAGGTTCGCTGACATGCATAGTAGACAGCGGTTTTTTTTTTTTTT',
-               '+',
-               'F#FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,FFF:F,FFFFF')
 
     ## so the regex might not be working that well!! two nucleotides of TSO go to the UMI
     tsos <- c('ATAGACGAGAATGAAACTGCGCCCACCTATTAGCCACAGCCTATGCGTAGTAGGTATGTG',
               'CAAAGGCACAATGGGAGTCTAACCACAAGGGTCAGCGGTTCTATGCGTAGTAGGTATGTG',
               'CAAAGGCACAATGATGAGTTACCCACTCTCACGAAAACTCGTATGCGTAGTAGGTATGTT',
-              'ATACTTAGGAATGAACTCATTGCCACTCCTCAATATGCCCTTATGCGTAGTAGGTATGTT')
+              'ATACTTAGGAAAGAACTCATTGCCCCTCCTCAATATGCCCTTATGCGTAGTAGGTATGTT')
 
-    x <- strcapture(pattern = regex,
-                    x = tsos,
-                    perl = TRUE,
-                    proto = list(prepend = character(),
-                                 seq1 = character(),
-                                 link1 = character(),
-                                 seq2 = character(),
-                                 link2 = character(),
-                                 seq3 = character(),
-                                 umi = character(),
-                                 tail = character()))
+    (x <- strcapture(pattern = regex,
+                     x = c(test1, tsos),
+                     perl = TRUE,
+                     proto = list(prepend = character(),
+                                  seq1 = character(),
+                                  link1 = character(),
+                                  seq2 = character(),
+                                  link2 = character(),
+                                  seq3 = character(),
+                                  umi = character(),
+                                  tail = character())))
+
+    (y <- strcapture(pattern = alt_regex,
+                     x = c(test1, tsos),
+                     perl = TRUE,
+                     proto = list(prepend = character(),
+                                  seq1 = character(),
+                                  link1 = character(),
+                                  seq2 = character(),
+                                  link2 = character(),
+                                  seq3 = character(),
+                                  umi = character(),
+                                  tail = character())))
+
+    (z <- strcapture(pattern = restrictive_regex,
+                     x = c(test1, tsos),
+                     perl = TRUE,
+                     proto = list(prepend = character(),
+                                  seq1 = character(),
+                                  link1 = character(),
+                                  seq2 = character(),
+                                  link2 = character(),
+                                  seq3 = character(),
+                                  umi = character(),
+                                  tail = character())))
+
+    ## nonfuzzy matching
+    m <- regexec(restrictive_regex, c(test1, tsos))
+    bar <- do.call(rbind.data.frame, regmatches(c(test1, tsos), m))
+    colnames(bar) <- c('original', 'prepend', 'seq1', 'link1', 'seq2', 'link2', 'seq3', 'umi', 'tail')
+    print(bar)
+
+    ## fuzzy matching
+    m <- aregexec(restrictive_regex, c(test1, tsos), max.distance = list(substitutions = 6,
+                                                                         insertions = 0,
+                                                                         deletions = 0))
+    foo <- do.call(rbind.data.frame, regmatches(c(test1, tsos), m))[,-1]
+    colnames(foo) <- c('prepend', 'seq1', 'link1', 'seq2', 'link2', 'seq3', 'umi', 'tail')
+    print(foo)
 }
 
+
+## ## extracts components of a fastq stanza and removes the prepended nts
+## ## returns a tokenized fastq stanza, looking like this
+## ##   prepend      seq1 link1      seq2 link2      seq3      umi              tail
+## ## 1     TNA ATGTAATGG  GTGA ACGACCACC  GACA AAGGGAACT TCTTGATG    TTTTTTTTTTTTTT
+## tokenize_stanza <- function(original_stanza, regex) {
+##     x <- strcapture(pattern = regex,
+##             x = original_stanza[2],
+##             perl = TRUE,
+##             proto = list(prepend = character(),
+##                          seq1 = character(),
+##                          link1 = character(),
+##                          seq2 = character(),
+##                          link2 = character(),
+##                          seq3 = character(),
+##                          umi = character(),
+##                          tail = character()))
+
+##     x$seq_trimmed <- paste(c(x$seq1, x$link1, x$seq2, x$link2, x$seq3, x$umi, x$tail), collapse = '')
+##     x$qual_trimmed <- substr(original_stanza[4], nchar(x$prepend) + 1, nchar(original_stanza[4]))
+
+##     return(x)
+## }
 
 ## extracts components of a fastq stanza and removes the prepended nts
 ## returns a tokenized fastq stanza, looking like this
 ##   prepend      seq1 link1      seq2 link2      seq3      umi              tail
 ## 1     TNA ATGTAATGG  GTGA ACGACCACC  GACA AAGGGAACT TCTTGATG    TTTTTTTTTTTTTT
-tokenize_stanza <- function(original_stanza, regex) {
-    x <- strcapture(pattern = regex,
-            x = original_stanza[2],
-            perl = TRUE,
-            proto = list(prepend = character(),
-                         seq1 = character(),
-                         link1 = character(),
-                         seq2 = character(),
-                         link2 = character(),
-                         seq3 = character(),
-                         umi = character(),
-                         tail = character()))
+tokenize_stanza <- function(original_stanza, regex) {    
+    ## fuzzy matching
+    m <- aregexec(regex, original_stanza[2], max.distance = list(substitutions = 6,
+                                                                 insertions = 0,
+                                                                 deletions = 0))
 
+    ## message(original_stanza[2])
+    ## that is, doesn't match
+    if (m[[1]] == '-1') {
+        x <- as.data.frame(matrix(data = NA, nrow = 1, ncol = 8))
+    } else { 
+        x <- do.call(rbind.data.frame, regmatches(original_stanza[2], m))[,-1]
+    }
+
+    colnames(x) <- c('prepend', 'seq1', 'link1', 'seq2', 'link2', 'seq3', 'umi', 'tail')
+    
     x$seq_trimmed <- paste(c(x$seq1, x$link1, x$seq2, x$link2, x$seq3, x$umi, x$tail), collapse = '')
     x$qual_trimmed <- substr(original_stanza[4], nchar(x$prepend) + 1, nchar(original_stanza[4]))
 
@@ -179,9 +242,23 @@ has_tso_in_tail <- function(x) {
     ##                                                              insertions = 1,
     ##                                                              deletions = nchar(x$prepend))))
     return(agrepl(x = x$tail, pattern = tso,
-                  max.distance = list(substitutions = 1,
-                                      insertions = 1,
-                                      deletions = 1))
+                  max.distance = list(substitutions = 4,
+                                      insertions = 2,
+                                      deletions = 2)))
+}
+
+has_link_1 <- function(x, pattern, edit_dist = 1) {
+    return(agrepl(x = x$link1, pattern = pattern,
+                  max.distance = list(substitutions = edit_dist,
+                                      insertions = 0,
+                                      deletions = 0)))
+}
+
+has_link_2 <- function(x, pattern, edit_dist = 1) {
+    return(agrepl(x = x$link2, pattern = pattern,
+                  max.distance = list(substitutions = edit_dist,
+                                      insertions = 0,
+                                      deletions = 0)))
 }
 
 initialize_counts_object <- function() {
@@ -217,7 +294,7 @@ sort_reads_by_regex_match <- function(original_stanza, original_cdna, x, output_
     }
     else {
         ## read is supposed to belong to bucket oligodT, but we check the tail
-        if (x$link1 == 'GTGA' & x$link2 == 'GACA') {
+        if (has_link_1(x = x, pattern = 'GTGA') & has_link_2(x = x , pattern = 'GACA')) {
             if (has_tso_in_tail(x = x)) {
                
                 write(reconstruct_stanza(x = x, original_stanza = original_stanza),
@@ -253,7 +330,7 @@ sort_reads_by_regex_match <- function(original_stanza, original_cdna, x, output_
                 counts[['GTGA']][['GACA']][['Tn']][[num_ts]] <-counts[['GTGA']][['GACA']][['Tn']][[num_ts]] + 1
             }
         }
-        else if (x$link1 == 'AATG' & x$link2 == 'CCAC') {
+        else if (has_link_1(x = x, pattern = 'AATG') & has_link_2(x = x, pattern = 'CCAC')) {
             if (has_tso_in_tail(x = x)) {
                 
                 write(reconstruct_stanza(x = x, original_stanza = original_stanza),
@@ -338,12 +415,15 @@ process_stanza <- function(barcode_fn, cdna_fn, output_dir, regex) {
         if (length(original_barcode) == 0 | length(original_cdna) == 0) {
             break
         }
-        
-        counts <- sort_reads_by_regex_match(original_stanza = original_barcode,
-                                  original_cdna = original_cdna,
-                                  x = tokenize_stanza(original_stanza = original_barcode, regex = regex),
-                                  output_dir = output_dir,
-                                  counts = counts)
+
+        ## tryCatch({
+            counts <- sort_reads_by_regex_match(
+                original_stanza = original_barcode,
+                original_cdna = original_cdna,
+                x = tokenize_stanza(original_stanza = original_barcode, regex = regex),
+                output_dir = output_dir,
+                counts = counts)
+            ## }, error = function(x) message(original_barcode))
     }
     
     close(fh)
@@ -370,6 +450,6 @@ process_stanza <- function(barcode_fn, cdna_fn, output_dir, regex) {
 process_stanza(barcode_fn = args$read1,
                cdna_fn = args$read2, 
                output_dir = args$output,
-               regex = regex)
+               regex = restrictive_regex)
 
 cat(sprintf('End %s\t%s\n', args$output, Sys.time()))
