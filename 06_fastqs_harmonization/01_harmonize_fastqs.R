@@ -265,10 +265,14 @@ initialize_counts_object <- function() {
     ## a log/summary to do some descriptive stats
     counts <- list('non_matching' = 0,
                    'GTGA' = list('GACA' = list('TSO' = 0,
-                                               'Tn' = as.list(setNames(rep(0, 25), sprintf('T%s', 1:25))))),
+                                               'Tn' = as.list(setNames(rep(0, 20), sprintf('T%s', 1:20))),
+                                               'else' = 0)),
                    'AATG' = list('CCAC' = list('TSO' = 0,
-                                               'Tn' = as.list(setNames(rep(0, 25), sprintf('T%s', 1:25))))),
-                   'other_linkers' = 0)
+                                               'Tn' = as.list(setNames(rep(0, 20), sprintf('T%s', 1:20))),
+                                               'else' = 0)),
+                   'other_linkers' = list('TSO' = 0,
+                                          'Tn' = as.list(setNames(rep(0, 20), sprintf('T%s', 1:20))),
+                                          'else' = 0))
     return(counts)
 }
 
@@ -318,8 +322,6 @@ sort_reads_by_regex_match <- function(original_stanza, original_cdna, x, output_
                 
             }
             else {
-                num_ts <- sprintf('T%s', count_number_ts_in_tail(x))
-
                 write(reconstruct_stanza(x = x, original_stanza = original_stanza),
                       file = file.path(output_dir, 'GTGA_GACA_else_R1.fastq'), append = TRUE)
 
@@ -327,7 +329,7 @@ sort_reads_by_regex_match <- function(original_stanza, original_cdna, x, output_
                       file = file.path(output_dir, 'GTGA_GACA_else_R2.fastq'), append = TRUE)
 
                 ## we count the Ts anyway
-                counts[['GTGA']][['GACA']][['Tn']][[num_ts]] <-counts[['GTGA']][['GACA']][['Tn']][[num_ts]] + 1
+                counts[['GTGA']][['GACA']][['else']] <-counts[['GTGA']][['GACA']][['else']] + 1
             }
         }
         else if (has_link_1(x = x, pattern = 'AATG') & has_link_2(x = x, pattern = 'CCAC')) {
@@ -354,26 +356,48 @@ sort_reads_by_regex_match <- function(original_stanza, original_cdna, x, output_
                 
             }
             else {
-                num_ts <- sprintf('T%s', count_number_ts_in_tail(x))
-
                 write(reconstruct_stanza(x = x, original_stanza = original_stanza),
                       file = file.path(output_dir, 'AATG_CCAC_else_R1.fastq'), append = TRUE)
 
                 write(original_cdna,
                       file = file.path(output_dir, 'AATG_CCAC_else_R2.fastq'), append = TRUE)
 
-                counts[['AATG']][['CCAC']][['Tn']][[num_ts]] <-counts[['AATG']][['CCAC']][['Tn']][[num_ts]] + 1
+                counts[['AATG']][['CCAC']][['else']] <-counts[['AATG']][['CCAC']][['else']] + 1
             }
 
         }
         else{
-            ## read matches the regex but the two linkers are not as expected (?)
-            ## this use case might not be needed
-            write(original_stanza, file = file.path(output_dir, 'other_linkers_R1.fastq'), append = TRUE)
-            write(original_cdna, file = file.path(output_dir, 'other_linkers_R2.fastq'), append = TRUE)
+            ## the regex matches, but with noncanonical linkers; split by TSO/dT tails
+            if (has_tso_in_tail(x = x)) {
+                
+                write(reconstruct_stanza(x = x, original_stanza = original_stanza),
+                      file = file.path(output_dir, 'other_linkers_TSO_R1.fastq'), append = TRUE)
 
-            counts[['other_linkers']] <- counts[['other_linkers']] + 1
+                write(original_cdna,
+                      file = file.path(output_dir, 'other_linkers_TSO_R2.fastq'), append = TRUE)
 
+                counts[['other_linkers']][['TSO']] <- counts[['other_linkers']][['TSO']] + 1
+            }
+            else if (has_TTTTT_in_tail(x)) {
+                num_ts <- sprintf('T%s', count_number_ts_in_tail(x))
+
+                write(reconstruct_stanza(x = x, original_stanza = original_stanza),
+                      file = file.path(output_dir, 'other_linkers_Tn_R1.fastq'), append = TRUE)
+
+                write(original_cdna,
+                      file = file.path(output_dir, 'other_linkers_Tn_R2.fastq'), append = TRUE)
+
+                counts[['other_linkers']][['Tn']][[num_ts]] <- counts[['other_linkers']][['Tn']][[num_ts]] + 1
+                
+            }
+            else {
+                ## read matches the regex but the two linkers are not as expected (?)
+                ## this use case might not be needed
+                write(original_stanza, file = file.path(output_dir, 'other_linkers_else_R1.fastq'), append = TRUE)
+                write(original_cdna, file = file.path(output_dir, 'other_linkers_else_R2.fastq'), append = TRUE)
+
+                counts[['other_linkers']][['else']] <- counts[['other_linkers']][['else']] + 1
+            }
         }
     }
     return(counts)
@@ -394,7 +418,9 @@ process_stanza <- function(barcode_fn, cdna_fn, output_dir, regex) {
     tso_not <- file(file.path(output_dir, 'AATG_CCAC_Tn_R1.fastq'), 'w')
     dt_else <- file(file.path(output_dir, 'GTGA_GACA_else_R1.fastq'), 'w')
     tso_else <- file(file.path(output_dir, 'AATG_CCAC_else_R1.fastq'), 'w')
-    unusual <- file(file.path(output_dir, 'other_linkers_R1.fastq'), 'w')
+    other_dt <- file(file.path(output_dir, 'other_linkers_Tn_R1.fastq'), 'w')
+    other_tso <- file(file.path(output_dir, 'other_linkers_TSO_R1.fastq'), 'w')
+    other_else <- file(file.path(output_dir, 'other_linkers_else_R1.fastq'), 'w')
         
     ## the output cDNA files (R2)
     nonmatching_cdna <- file(file.path(output_dir, 'non_matching_R1.fastq'), 'w')
@@ -404,7 +430,10 @@ process_stanza <- function(barcode_fn, cdna_fn, output_dir, regex) {
     tso_not_cdna <- file(file.path(output_dir, 'AATG_CCAC_Tn_R1.fastq'), 'w')
     dt_else_cdna <- file(file.path(output_dir, 'GTGA_GACA_else_R1.fastq'), 'w')
     tso_else_cdna <- file(file.path(output_dir, 'AATG_CCAC_else_R1.fastq'), 'w')
-    unusual_cdna <- file(file.path(output_dir, 'other_linkers_R1.fastq'), 'w')
+    other_dt_cdna <- file(file.path(output_dir, 'other_linkers_Tn_R2.fastq'), 'w')
+    other_tso_cdna<- file(file.path(output_dir, 'other_linkers_TSO_R2.fastq'), 'w')
+    other_else_cdna <- file(file.path(output_dir, 'other_linkers_else_R2.fastq'), 'w')
+
 
     counts <- initialize_counts_object()
     
@@ -431,9 +460,10 @@ process_stanza <- function(barcode_fn, cdna_fn, output_dir, regex) {
 
     ## compress the fastq outputs
     for (item in c('nonmatching', 'dt_proper', 'tso_proper',
-                   'dt_not', 'tso_not', 'dt_else', 'tso_else', 'unusual',
+                   'dt_not', 'tso_not', 'dt_else', 'tso_else', 'other_dt', 'other_tso', 'other_else',
                    'nonmatching_cdna', 'dt_proper_cdna', 'tso_proper_cdna',
-                   'dt_not_cdna', 'tso_not_cdna', 'dt_else_cdna', 'tso_else_cdna', 'unusual_cdna')) {
+                   'dt_not_cdna', 'tso_not_cdna', 'dt_else_cdna', 'tso_else_cdna',
+                   'other_dt_cdna', 'other_tso_cdna', 'other_else_cdna')) {
         close(get(item))
     }
     
@@ -444,7 +474,7 @@ process_stanza <- function(barcode_fn, cdna_fn, output_dir, regex) {
     }
 
     ## write the counts file
-    saveRDS(object = counts, file = file.path(output_dir, 'counts.rds'))
+    saveRDS(object = counts, file = file.path(output_dir, sprintf('%s_counts.rds', basename(args$read1)))
 }
 
 process_stanza(barcode_fn = args$read1,

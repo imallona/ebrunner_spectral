@@ -19,8 +19,8 @@
 
 # A regex might look like
 # '([ACTGN]{0,3})([ACTGN]{9})(GTGA|AATG{1})([ACTGN]{9})(GACA|CCAC){1}([ACTGN]{9})([ACTGN]{8})(.*)'
-
-WD=/home/imallona/tmp/regex_more_buckets
+ID=20220629.B-o2875511-SPECTRAL_1
+WD=/home/imallona/ebrunner_spectral/harmonize_fastqs/"$ID"
 DATA=/home/gmoro/fastqs_six_scRNAseq
 
 mkdir -p $WD; cd $WD
@@ -29,8 +29,9 @@ mkdir -p $WD; cd $WD
 
 # what about chunking each R1/R2 file into a multiple-of-4 number of lines, and then running the parsing script?
 NLINES=10000000
-zcat "$DATA"/20220629.B-o2875511-SPECTRAL_1_R1.fastq.gz | split - -l "$NLINES" --filter='gzip > $FILE.r1.gz' part.
-zcat "$DATA"/20220629.B-o2875511-SPECTRAL_1_R2.fastq.gz  | split - -l "$NLINES" --filter='gzip > $FILE.r2.gz' part.
+
+zcat "$DATA"/"$ID"_R1.fastq.gz | split - -l "$NLINES" --filter='gzip > $FILE.r1.gz' part.
+zcat "$DATA"/"$ID"_R2.fastq.gz  | split - -l "$NLINES" --filter='gzip > $FILE.r2.gz' part.
 
 # for r1 in $(find . -name "part.*.r1.gz")
 # do
@@ -64,7 +65,7 @@ N=32
         nice -n 19 /usr/local/R/R-4.1.0/bin/Rscript ~/src/ebrunner_spectral/06_fastqs_harmonization/01_harmonize_fastqs.R \
             -r1 "$r1" \
             -r2 "$r2" \
-            -o "$WD"/delete_me_chunked/"$curr" &
+            -o "$WD"/harmonized/"$curr" &
 
     done
 )
