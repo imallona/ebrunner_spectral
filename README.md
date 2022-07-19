@@ -39,6 +39,9 @@ Developing at branch `develop` with occasional merges to `master`.
     - `run_all.sh`
     - `yaml` folder including zUMIs yamls (refer to sherborne's paths)
         - `batch_1/no_barcodes_hm_0/human__20210923.B-o26015_1_3-SPECTRAL_unmod.yaml` etc
+- `04_descriptive_analysis_batch_1`
+- `05_troubleshooting_batch_2`
+- `06_fastqs_harmonization`: utils to harmonize fastqs before running zUMIs (mostly regexes)
 
 # How to run
 
@@ -47,6 +50,7 @@ Check `run_all.sh` and the software `soft_installs.sh` to get an idea of the set
 ```
 ./zUMIs.sh  -y test.yaml -d /home/ubuntu/sandbox/zUMIs/ 2>&1 | tee -a logs/output.log
 ```
+
 
 # Notes/reminders
 
