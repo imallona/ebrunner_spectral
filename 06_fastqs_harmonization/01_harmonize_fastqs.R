@@ -474,7 +474,7 @@ process_stanza <- function(barcode_fn, cdna_fn, output_dir, regex) {
     }
 
     ## write the counts file
-    saveRDS(object = counts, file = file.path(output_dir, sprintf('%s_counts.rds', basename(args$read1)))
+    saveRDS(object = counts, file = file.path(output_dir, sprintf('%s_counts.rds', basename(args$read1))))
 }
 
 process_stanza(barcode_fn = args$read1,
