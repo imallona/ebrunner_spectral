@@ -76,11 +76,11 @@ if (args$read1 != 'none' | args$read2 != 'none') {
 
 dir.create(args$output, showWarnings = FALSE, recursive = TRUE)
 
-regex <- '([ACTGN]{0,3})([ACTGN]{9})(GTGA|AATG{1})([ACTGN]{9})(GACA|CCAC){1}([ACTGN]{9})([ACTGN]{8})(.*)'
+## regex <- '([ACTGN]{0,3})([ACTGN]{9})(GTGA|AATG{1})([ACTGN]{9})(GACA|CCAC){1}([ACTGN]{9})([ACTGN]{8})(.*)'
 
-alt_regex <- '([ACTGN]{0,3})([ACTGN]{9})([ATCGN]{4})([ACTGN]{9})([ATCGN]{4})([ACTGN]{9})([ACTGN]{8})(TATGC[ACTGN]+$|TTTT[ACTGN]+$)'
+## alt_regex <- '([ACTGN]{0,3})([ACTGN]{9})([ATCGN]{4})([ACTGN]{9})([ATCGN]{4})([ACTGN]{9})([ACTGN]{8})(TATGC[ACTGN]+$|TTTT[ACTGN]+$)'
 
-restrictive_regex <- '([ACTGN]{0,3})([ACTGN]{9})(GTGA|AATG{1})([ACTGN]{9})(GACA|CCAC){1}([ACTGN]{9})([ACTGN]{8})([ACTGN]?TATGC[ACTGN]+$|[ACTGN]?TTTTT[ACTGN]+$)'
+restrictive_regex <- '(^A|^N|^GT|^GN|^NT|^TCA|^NCA|^TNA|^TCN|^TNN|^NCN|^NNA){0,1}([ACTGN]{9})(GTGA|AATG{1})([ACTGN]{9})(GACA|CCAC){1}([ACTGN]{9})([ACTGN]{8})(.*)'
 
 ## this is just for finetuning the regex; commented out
 if (FALSE) {
@@ -182,7 +182,7 @@ tokenize_stanza <- function(original_stanza, regex) {
 
     ## message(original_stanza[2])
     ## that is, doesn't match
-    if (m[[1]] == '-1') {
+    if (any(m[[1]] == '-1')) {
         x <- as.data.frame(matrix(data = NA, nrow = 1, ncol = 8))
     } else { 
         x <- do.call(rbind.data.frame, regmatches(original_stanza[2], m))[,-1]
@@ -224,7 +224,9 @@ has_TTTTT_in_tail <- function(x) {
 ## it allows 1 subst, 1 insertion, and as many deletions as the length of the prepended token
 #    because, often, TSO is not fully seq in its 3'
 has_tso_in_tail <- function(x) {
-    tso <- 'TATGCGTAGTAGGTATG'
+    ## tso <- 'TATGCGTAGTAG'
+    ## tso <- 'TATGCG'
+    tso <- 'TATGC'
 
     ## x <- list(tail = 'TATGCGTAGTAGGTGA',
     ##           prepend = 'AT')
@@ -242,9 +244,9 @@ has_tso_in_tail <- function(x) {
     ##                                                              insertions = 1,
     ##                                                              deletions = nchar(x$prepend))))
     return(agrepl(x = x$tail, pattern = tso,
-                  max.distance = list(substitutions = 4,
-                                      insertions = 2,
-                                      deletions = 2)))
+                  max.distance = list(substitutions = 1,
+                                      insertions = 0,
+                                      deletions = 0)))
 }
 
 has_link_1 <- function(x, pattern, edit_dist = 1) {
@@ -298,7 +300,10 @@ sort_reads_by_regex_match <- function(original_stanza, original_cdna, x, output_
     }
     else {
         ## read is supposed to belong to bucket oligodT, but we check the tail
-        if (has_link_1(x = x, pattern = 'GTGA') & has_link_2(x = x , pattern = 'GACA')) {
+        if ((has_link_1(x = x, pattern = 'GTGA', edit_dist = 1) &
+             has_link_2(x = x , pattern = 'GACA', edit_dist = 0)) |
+            (has_link_1(x = x, pattern = 'GTGA', edit_dist = 0) &
+             has_link_2(x = x , pattern = 'GACA', edit_dist = 1))) {
             if (has_tso_in_tail(x = x)) {
                
                 write(reconstruct_stanza(x = x, original_stanza = original_stanza),
@@ -332,7 +337,10 @@ sort_reads_by_regex_match <- function(original_stanza, original_cdna, x, output_
                 counts[['GTGA']][['GACA']][['else']] <-counts[['GTGA']][['GACA']][['else']] + 1
             }
         }
-        else if (has_link_1(x = x, pattern = 'AATG') & has_link_2(x = x, pattern = 'CCAC')) {
+        else if ((has_link_1(x = x, pattern = 'AATG', edit_dist = 1) &
+                  has_link_2(x = x , pattern = 'CCAC', edit_dist = 0)) |
+                 (has_link_1(x = x, pattern = 'AATG', edit_dist = 0) &
+                  has_link_2(x = x , pattern = 'CCAC', edit_dist = 1))) {
             if (has_tso_in_tail(x = x)) {
                 
                 write(reconstruct_stanza(x = x, original_stanza = original_stanza),
@@ -362,9 +370,8 @@ sort_reads_by_regex_match <- function(original_stanza, original_cdna, x, output_
                 write(original_cdna,
                       file = file.path(output_dir, 'AATG_CCAC_else_R2.fastq'), append = TRUE)
 
-                counts[['AATG']][['CCAC']][['else']] <-counts[['AATG']][['CCAC']][['else']] + 1
+                counts[['AATG']][['CCAC']][['else']] <- counts[['AATG']][['CCAC']][['else']] + 1
             }
-
         }
         else{
             ## the regex matches, but with noncanonical linkers; split by TSO/dT tails
