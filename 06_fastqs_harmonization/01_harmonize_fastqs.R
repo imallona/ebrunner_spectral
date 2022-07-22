@@ -80,7 +80,9 @@ dir.create(args$output, showWarnings = FALSE, recursive = TRUE)
 
 ## alt_regex <- '([ACTGN]{0,3})([ACTGN]{9})([ATCGN]{4})([ACTGN]{9})([ATCGN]{4})([ACTGN]{9})([ACTGN]{8})(TATGC[ACTGN]+$|TTTT[ACTGN]+$)'
 
-restrictive_regex <- '(^A|^N|^GT|^GN|^NT|^TCA|^NCA|^TNA|^TCN|^TNN|^NCN|^NNA){0,1}([ACTGN]{9})(GTGA|AATG{1})([ACTGN]{9})(GACA|CCAC){1}([ACTGN]{9})([ACTGN]{8})(.*)'
+## restrictive_regex <- '(^A|^N|^GT|^GN|^NT|^TCA|^NCA|^TNA|^TCN|^TNN|^NCN|^NNA){0,1}([ACTGN]{9})(GTGA|AATG{1})([ACTGN]{9})(GACA|CCAC){1}([ACTGN]{9})([ACTGN]{8})(.*)'
+
+regex <- '[^(A|N|GT|GN|NT|TCA|NCA|TNA|TCN|TNN|NCN|NNA){1})([ACTGN]{9})(GTGA{1})|(^[ACTGN]{9})(AATG{1})]([ACTGN]{9})(GACA|CCAC){1}([ACTGN]{9})([ACTGN]{8})(.*)'
 
 ## this is just for finetuning the regex; commented out
 if (FALSE) {
@@ -108,30 +110,6 @@ if (FALSE) {
                                   umi = character(),
                                   tail = character())))
 
-    (y <- strcapture(pattern = alt_regex,
-                     x = c(test1, tsos),
-                     perl = TRUE,
-                     proto = list(prepend = character(),
-                                  seq1 = character(),
-                                  link1 = character(),
-                                  seq2 = character(),
-                                  link2 = character(),
-                                  seq3 = character(),
-                                  umi = character(),
-                                  tail = character())))
-
-    (z <- strcapture(pattern = restrictive_regex,
-                     x = c(test1, tsos),
-                     perl = TRUE,
-                     proto = list(prepend = character(),
-                                  seq1 = character(),
-                                  link1 = character(),
-                                  seq2 = character(),
-                                  link2 = character(),
-                                  seq3 = character(),
-                                  umi = character(),
-                                  tail = character())))
-
     ## nonfuzzy matching
     m <- regexec(restrictive_regex, c(test1, tsos))
     bar <- do.call(rbind.data.frame, regmatches(c(test1, tsos), m))
@@ -139,7 +117,7 @@ if (FALSE) {
     print(bar)
 
     ## fuzzy matching
-    m <- aregexec(restrictive_regex, c(test1, tsos), max.distance = list(substitutions = 6,
+    m <- aregexec(restrictive_regex, c(test1, tsos), max.distance = list(substitutions = 4,
                                                                          insertions = 0,
                                                                          deletions = 0))
     foo <- do.call(rbind.data.frame, regmatches(c(test1, tsos), m))[,-1]
@@ -181,10 +159,10 @@ if (FALSE) {
 ## returns a tokenized fastq stanza, looking like this
 ##   prepend      seq1 link1      seq2 link2      seq3      umi              tail
 ## 1     TNA ATGTAATGG  GTGA ACGACCACC  GACA AAGGGAACT TCTTGATG    TTTTTTTTTTTTTT
-## mind we allow up to 6 of edit distance, now, as compared to the canonical regex
+## mind we allow up to 4 of edit distance, now, as compared to the canonical regex
 tokenize_stanza <- function(original_stanza, regex) {    
     ## fuzzy matching
-    m <- aregexec(regex, original_stanza[2], max.distance = list(substitutions = 6,
+    m <- aregexec(regex, original_stanza[2], max.distance = list(substitutions = 4,
                                                                  insertions = 0,
                                                                  deletions = 0))
 
@@ -485,6 +463,6 @@ process_stanza <- function(barcode_fn, cdna_fn, output_dir, regex) {
 process_stanza(barcode_fn = args$read1,
                cdna_fn = args$read2, 
                output_dir = args$output,
-               regex = restrictive_regex)
+               regex = regex)
 
 cat(sprintf('End %s\t%s\n', args$output, Sys.time()))
