@@ -86,8 +86,9 @@ restrictive_regex <- '(^A|^N|^GT|^GN|^NT|^TCA|^NCA|^TNA|^TCN|^TNN|^NCN|^NNA){0,1
 if (FALSE) {
     test1 <- c('TNAATGTAATGGGTGAACGACCACCGACAAAGGGAACTTCTTGATGTTTTTTTTTTTTTT',
                'CNCATTGCAAATGAATCCTGAACCACTTCAGCTCAGTTAAATATATGCGTAGGAGGTATG',
-               'GNACACACAAAGTGTAGATAGTTCGACAACACCTTAGCTGCTTACTTTTTTTGTTTTTTT',
-               'ANTTAGATGAATGCAGAAATCGCCACGATGGTCCACAGTTTCTTATGCCTACAACCGATG')
+               'GNACACACAAAGTGTAGATAGTTCGACAACACCTTAGCTGCTTACGTGTGTTGTTTTTTT',
+               'ANTTAGATGAATGCAGAAATCGCCACGATGGTCCACAGTTTCTTATGCCTACAACCGATG',
+               'TGTAATCACAATGTGCGTATCACAACTGCATTGAAGACACTGCGGTGTGCTCCCAAAAAA')
 
     ## so the regex might not be working that well!! two nucleotides of TSO go to the UMI
     tsos <- c('ATAGACGAGAATGAAACTGCGCCCACCTATTAGCCACAGCCTATGCGTAGTAGGTATGTG',
@@ -170,10 +171,17 @@ if (FALSE) {
 ##     return(x)
 ## }
 
+
+## original_stanza <- c('@A01251:431:H33CTDRX2:1:2101:29975:1016 1:N:0:GCTACGCT',
+##                      'GNACACACAAAGTGAAGATAGTTCGACAACACCTTAGCTGCTTACTTTTTTTGTTTTTTT',
+##                      '+',
+##                      'F#FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF:F::F,,FFFF:FF')
+
 ## extracts components of a fastq stanza and removes the prepended nts
 ## returns a tokenized fastq stanza, looking like this
 ##   prepend      seq1 link1      seq2 link2      seq3      umi              tail
 ## 1     TNA ATGTAATGG  GTGA ACGACCACC  GACA AAGGGAACT TCTTGATG    TTTTTTTTTTTTTT
+## mind we allow up to 6 of edit distance, now, as compared to the canonical regex
 tokenize_stanza <- function(original_stanza, regex) {    
     ## fuzzy matching
     m <- aregexec(regex, original_stanza[2], max.distance = list(substitutions = 6,
@@ -191,7 +199,11 @@ tokenize_stanza <- function(original_stanza, regex) {
     colnames(x) <- c('prepend', 'seq1', 'link1', 'seq2', 'link2', 'seq3', 'umi', 'tail')
     
     x$seq_trimmed <- paste(c(x$seq1, x$link1, x$seq2, x$link2, x$seq3, x$umi, x$tail), collapse = '')
-    x$qual_trimmed <- substr(original_stanza[4], nchar(x$prepend) + 1, nchar(original_stanza[4]))
+    ## x$qual_trimmed <- substr(original_stanza[4], nchar(x$prepend) + 1, nchar(original_stanza[4]))
+    x$qual_trimmed <- substr(original_stanza[4], start = nchar(original_stanza[4]) - nchar(x$seq_trimmed) + 1,
+                             stop = nchar(original_stanza[4]))
+
+    stopifnot(nchar(x$seq_trimmed) == nchar(x$qual_trimmed))
 
     return(x)
 }
