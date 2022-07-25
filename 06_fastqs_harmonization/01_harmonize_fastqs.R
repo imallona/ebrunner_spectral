@@ -449,7 +449,7 @@ process_stanza <- function(barcode_fn, cdna_fn, output_dir, regex) {
                    'nonmatching_cdna', 'dt_proper_cdna', 'tso_proper_cdna',
                    'dt_not_cdna', 'tso_not_cdna', 'dt_else_cdna', 'tso_else_cdna',
                    'other_dt_cdna', 'other_tso_cdna', 'other_else_cdna')) {
-        on.exit(close(get(item)))
+        close(get(item))
     }
     
     ## compress the fastq outputs
