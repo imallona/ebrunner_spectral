@@ -136,10 +136,15 @@ if (FALSE) {
 ## }
 
 
-## original_stanza <- c('@A01251:431:H33CTDRX2:1:2101:29975:1016 1:N:0:GCTACGCT',
-##                      'GNACACACAAAGTGAAGATAGTTCGACAACACCTTAGCTGCTTACTTTTTTTGTTTTTTT',
+## original_stanza <- c('@dT_prepend_2_nt_1_sub',
+##                      'GCTGTACCTTAGTGAAATCCTGAAGACACAAGTTTCCATGCATGCTTTTTTTTTTTTTTTTT',
 ##                      '+',
-##                      'F#FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF:F::F,,FFFF:FF')
+##                      '12345678901234567890123456789012345678901234567890123456789012')
+
+## original_stanza <- c('@dT_correct_prepend_1_nt_N_second_position',
+##                      'ANGTACCTTAGTGAAATCCTGAAGACACAAGTTTCCATGCATGCTTTTTTTTTTTTTTTTTT',
+##                      '+',
+##                      '12345678901234567890123456789012345678901234567890123456789012')
 
 ## extracts components of a fastq stanza and removes the prepended nts
 ## returns a tokenized fastq stanza, looking like this

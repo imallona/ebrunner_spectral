@@ -36,6 +36,7 @@ NLINES=5000000
 zcat "$DATA"/"$ID"_R1.fastq.gz | split - -l "$NLINES" --filter='gzip > $FILE.r1.gz' part.
 zcat "$DATA"/"$ID"_R2.fastq.gz  | split - -l "$NLINES" --filter='gzip > $FILE.r2.gz' part.
 
+mkdir harmonized
 
 N=10
 
