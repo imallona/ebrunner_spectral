@@ -43,13 +43,21 @@ def converter(cell_index, cb1, cb2, cb3):
     cl3 = cb3[cl3_int - 1]
     
     cl = '-'.join([cl1, cl2, cl3])
+    # return(cl3_int)
     return(cl)
 
 
-tests = [130633,43851,61929]
+tests = [130633,43851,61929,138720,139200]
 for test in tests:
     print(converter(cell_index = test, cb1 = cb1, cb2 = cb2, cb3 = cb3))
 ```
+
+AACTGTATT-AGTGTTGTC-AAGGGTCAG
+CGGTCCAGG-CTTGCTTCA-TCAGATTCA
+CCTAGTATA-ATTACCAAG-AATGTATCG
+ACCTTGCGG-CACAAAGGC-TTAGGCATA
+ACCTTGCGG-AGCGACACC-TTAGGCATA
+
 
 
 Our R-based translator, from SBG cell index to CB (DNA sequence)
@@ -59,21 +67,26 @@ cb1 <- read.table("./data/CLS1.txt")$V1
 cb2 <- read.table("./data/CLS2.txt")$V1
 cb3 <- read.table("./data/CLS3.txt")$V1
 
-tests <- c(130633,43851,61929)
+tests <-  c(130633,43851,61929,138720,139200)
 
 ## the +1+1 is to keep literal translation from python, which adds +1 but counts from 0
 translate_id <- function(x, cb1, cb2, cb3) {
     cl1_int <- floor(x / (96**2)) + 1 + 1
-    cl2_int <- (floor(x %% (96**2)) / 96) + 1 + 1 
-    cl3_int <- (floor(x %% (96**2)) %% 96) + 1 
+    cl2_int <- (floor(x %% (96**2)) / 96) + 1 + 1
+    ## @todo fixme!
+    cl3_int <- (floor(x %% (96**2)) %% 96) + 1
+    ## this is going to certainly break at some point
+    if (cl3_int == 1)
+        cl3_int <- 97 + 1
     
     cl1 <- cb1[cl1_int -1] 
     cl2 <- cb2[cl2_int -1]
-    cl3 <- cb2[cl3_int -1]
+    cl3 <- cb3[cl3_int -1]
 
     ## cl<- do.call(paste, expand.grid(cl1,cl2,cl3, sep='', stringsAsFactors=FALSE))
     cl <- paste(c(cl1, cl2, cl3), collapse = '-')
-    return(cl)
+    ## return(list(cl1_int, cl2_int, cl3_int, cl))
+    ## return(cl)
 }
 
 for (idx in tests){
