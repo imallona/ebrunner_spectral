@@ -302,6 +302,9 @@ do
     ID=$(basename $fastq _R1.fastq.gz)
 
     echo $ID
+
+    mkdir -p "$WD"/harmonized/"$ID"
+    cd "$WD"/harmonized/"$ID"
     
     NLINES=5000000
 
@@ -325,12 +328,12 @@ do
             nice -n 19 /usr/local/R/R-4.1.0/bin/Rscript ~/src/ebrunner_spectral/06_fastqs_harmonization/01_harmonize_fastqs.R \
                  -r1 "$r1" \
                  -r2 "$r2" \
-                 -o "$WD"/harmonized/"$curr" &
+                 -o "$WD"/harmonized/"$ID"/"$curr" &
 
         done
     )
 
-    mkdir -p output
+    mkdir -p output/"$ID"
 
     for item in AATG_CCAC_else \
                     AATG_CCAC_Tn \
@@ -343,9 +346,43 @@ do
                     other_linkers_Tn \
                     other_linkers_TSO
     do
-        find harmonized -name "$item*R2.fastq.gz" | sort | xargs zcat | \
-            gzip -c > output/grouped_"$item"_R2.fastq.gz
-        find harmonized -name "$item*R1.fastq.gz" | sort | xargs zcat | \
-            gzip -c > output/grouped_"$item"_R1.fastq.gz
+        find harmonized/"$ID" -name "$item*R2.fastq.gz" | sort | xargs zcat | \
+            gzip -c > output/"$ID"/grouped_"$item"_R2.fastq.gz
+        find harmonized/"$ID" -name "$item*R1.fastq.gz" | sort | xargs zcat | \
+            gzip -c > output/"$ID"/grouped_"$item"_R1.fastq.gz
     done
+done
+
+# the grouped files are empty, I messed up the paths
+
+cd /home/imallona/ebrunner_spectral/harmonize_fastqs/20220825.B-o292712_3-SPECTRAL_10_100/harmonized
+
+OUT=/home/imallona/ebrunner_spectral/harmonize_fastqs/separated
+
+mkdir -p $OUT
+
+for id in $(find . -mindepth 1 -maxdepth 1 -type d)
+do
+    id=$(basename $id)
+
+    for item in AATG_CCAC_else \
+                    AATG_CCAC_Tn \
+                    AATG_CCAC_TSO \
+                    GTGA_GACA_else \
+                    GTGA_GACA_Tn \
+                    GTGA_GACA_TSO \
+                    non_matching \
+                    other_linkers_else \
+                    other_linkers_Tn \
+                    other_linkers_TSO
+        do
+            echo $id $item
+
+            mkdir -p "$OUT"/"$id"
+            
+            find "$id" -name "$item*R2.fastq.gz" | sort | xargs zcat | \
+                gzip -c > "$OUT"/"$id"/grouped_"$item"_R2.fastq.gz
+            find "$id" -name "$item*R1.fastq.gz" | sort | xargs zcat | \
+                gzip -c > "$OUT"/"$id"/grouped_"$item"_R1.fastq.gz
+        done
 done
