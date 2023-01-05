@@ -1,0 +1,46 @@
+project: human__20210923.B-o26015_1_3-SPECTRAL_unmod
+sequence_files:
+  file1:
+    name: /home/imallona/giulia/fastqs/20210923.B-o26015_1_3-SPECTRAL_unmod_R1.fastq.gz
+    base_definition:
+    - BC(1-9,22-30,44-52)
+    - UMI(53-60)
+  file2:
+    name: /home/imallona/giulia/fastqs/20210923.B-o26015_1_3-SPECTRAL_unmod_R2.fastq.gz
+    base_definition: cDNA(1-62)
+reference:
+  STAR_index: /home/imallona/giulia/indices/GRCh38_gencode_38
+  GTF_file: /home/imallona/giulia/indices/gencode.v38.basic.annotation.gtf
+  additional_STAR_params: ~
+  additional_files: ~
+out_dir: /home/imallona/giulia/zumi_runs/batch_1/no_barcodes_hm_0/human__20210923.B-o26015_1_3-SPECTRAL_unmod
+num_threads: 15
+mem_limit: 150
+filter_cutoffs:
+  BC_filter:
+    num_bases: 1
+    phred: 20
+  UMI_filter:
+    num_bases: 1
+    phred: 20
+barcodes:
+  barcode_num: ~
+  barcode_file: ~
+  automatic: yes
+  BarcodeBinning: 0
+  nReadsperCell: 100
+counting_opts:
+  introns: yes
+  downsampling: '0'
+  strand: 0
+  Ham_Dist: 0
+  velocyto: no
+  primaryHit: yes
+  twoPass: no
+make_stats: yes
+which_Stage: Filtering
+Rscript_exec: /usr/local/R/R-3.6.0/bin/Rscript
+STAR_exec: /home/imallona/soft/star/bin/STAR
+pigz_exec: pigz
+samtools_exec: /home/imallona/soft/samtools/samtools-1.14/bin/samtools
+zUMIs_directory: /home/imallona/soft/zUMIs

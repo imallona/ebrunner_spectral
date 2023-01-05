@@ -1,21 +1,21 @@
-project: test
+project: alien__20210923.B-o26015_1_3-SPECTRAL_unmod
 sequence_files:
   file1:
     name: /home/imallona/giulia/fastqs/20210923.B-o26015_1_3-SPECTRAL_unmod_R1.fastq.gz
     base_definition:
-    - BC(1-52)
+    - BC(1-9,22-30,44-52)
     - UMI(53-60)
   file2:
     name: /home/imallona/giulia/fastqs/20210923.B-o26015_1_3-SPECTRAL_unmod_R2.fastq.gz
     base_definition: cDNA(1-62)
 reference:
-  STAR_index: /home/imallona/giulia/indices/GRCm38_gencode_M25
-  GTF_file: /home/imallona/giulia/indices/gencode.vM25.annotation.gtf.gz
-  additional_STAR_params: null ## takes cDNA length -1 by default
-  additional_files: null
-out_dir: /home/imallona/giulia/zumi_runs/20210923.B-o26015_1_3-SPECTRAL_unmod
-num_threads: 20
-mem_limit: 300
+  STAR_index: /home/imallona/giulia/indices/alien
+  GTF_file: /home/imallona/giulia/indices/alien.gtf
+  additional_STAR_params: ~
+  additional_files: ~
+out_dir: /home/imallona/giulia/zumi_runs/batch_1/no_barcodes_hm_0/alien__20210923.B-o26015_1_3-SPECTRAL_unmod
+num_threads: 15
+mem_limit: 150
 filter_cutoffs:
   BC_filter:
     num_bases: 1
@@ -24,6 +24,8 @@ filter_cutoffs:
     num_bases: 1
     phred: 20
 barcodes:
+  barcode_num: ~
+  barcode_file: ~
   automatic: yes
   BarcodeBinning: 0
   nReadsperCell: 100
@@ -34,11 +36,11 @@ counting_opts:
   Ham_Dist: 0
   velocyto: no
   primaryHit: yes
-  twoPass: yes
+  twoPass: no
 make_stats: yes
 which_Stage: Filtering
-Rscript_exec: /usr/local/R/R-4.1.0/bin/R
-STAR_exec: STAR
+Rscript_exec: /usr/local/R/R-3.6.0/bin/Rscript
+STAR_exec: /home/imallona/soft/star/bin/STAR
 pigz_exec: pigz
-samtools_exec: samtools
-read_layout: SE
+samtools_exec: /home/imallona/soft/samtools/samtools-1.14/bin/samtools
+zUMIs_directory: /home/imallona/soft/zUMIs

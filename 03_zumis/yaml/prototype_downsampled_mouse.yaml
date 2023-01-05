@@ -1,0 +1,46 @@
+project: downsampled_mouse
+sequence_files:
+  file1:
+    name: /home/imallona/giulia/fastqs/downsampled/20210923.B-o26015_1_3-SPECTRAL_unmod_R1_downsampled.fastq.gz
+    base_definition:
+    - BC(1-9,22-30,44-52)
+    - UMI(53-60)
+  file2:
+    name: /home/imallona/giulia/fastqs/downsampled/20210923.B-o26015_1_3-SPECTRAL_unmod_R2_downsampled.fastq.gz
+    base_definition: cDNA(1-62)
+reference:
+  STAR_index: /home/imallona/giulia/indices/GRCm38_gencode_M25
+  GTF_file: /home/imallona/giulia/indices/gencode.vM25.annotation.gtf
+  additional_STAR_params: ~
+  additional_files: ~
+out_dir: /home/imallona/giulia/zumi_runs/downsampled/mouse
+num_threads: 10
+mem_limit: 150
+filter_cutoffs:
+  BC_filter:
+    num_bases: 1
+    phred: 20
+  UMI_filter:
+    num_bases: 1
+    phred: 20
+barcodes:
+  barcode_num: ~
+  barcode_file: ~
+  automatic: yes
+  BarcodeBinning: 0
+  nReadsperCell: 100
+counting_opts:
+  introns: yes
+  downsampling: '0'
+  strand: 0
+  Ham_Dist: 4
+  velocyto: no
+  primaryHit: yes
+  twoPass: no
+make_stats: yes
+which_Stage: Filtering
+Rscript_exec: /usr/local/R/R-3.6.0/bin/Rscript
+STAR_exec: /home/imallona/soft/star/bin/STAR
+pigz_exec: pigz
+samtools_exec: /home/imallona/soft/samtools/samtools-1.14/bin/samtools
+zUMIs_directory: /home/imallona/soft/zUMIs

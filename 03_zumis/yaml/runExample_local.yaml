@@ -1,0 +1,48 @@
+project: Example
+sequence_files:
+  file1:
+    name: /home/imallona/giulia/zumis_example/barcoderead_HEK.1mio.fq.gz
+    base_definition:
+    - BC(1-6)
+    - UMI(7-16)
+  file2:
+    name: /home/imallona/giulia/zumis_example/cDNAread_HEK.1mio.fq.gz
+    base_definition:
+    - cDNA(1-50)
+reference:
+  STAR_index: /home/imallona/giulia/indices/GRCm38_gencode_M25
+  GTF_file: /home/imallona/giulia/indices/gencode.vM25.annotation.gtf
+  additional_STAR_params: ''
+  additional_files: ~
+out_dir: /home/imallona/giulia/zumis_example/out
+num_threads: 8
+mem_limit: 20
+filter_cutoffs:
+  BC_filter:
+    num_bases: 1
+    phred: 20
+  UMI_filter:
+    num_bases: 1
+    phred: 20
+barcodes:
+  barcode_num: ~
+  barcode_file: ~
+  automatic: yes
+  BarcodeBinning: 0
+  nReadsperCell: 100
+counting_opts:
+  introns: yes
+  downsampling: '0'
+  strand: 0
+  Ham_Dist: 0
+  velocyto: no
+  primaryHit: yes
+  twoPass: no
+make_stats: yes
+which_Stage: Filtering
+Rscript_exec: /usr/local/R/R-3.6.0/bin/Rscript
+STAR_exec: /home/imallona/soft/star/bin/STAR
+pigz_exec: pigz
+samtools_exec: /home/imallona/soft/samtools/samtools-1.14/bin/samtools
+zUMIs_directory: /home/imallona/soft/zUMIs
+read_layout: SE

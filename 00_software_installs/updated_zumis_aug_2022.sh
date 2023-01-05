@@ -1,33 +1,30 @@
 #!/bin/bash
 ##
-## zumis install, including
-## R-based dependencies
+## installs zUMIs on R 4.2x, bioC 3.15
+## on sherborne
 ##
 ## Izaskun Mallona
-## 18th Oct 2021
-## GPLv2
-##
-## ran in sherborne
+## 11 Aug 2022
 
 
-mkdir -p ~/soft
+mkdir -p ~/soft/zumis_alt/
+cd $_
 
 git clone https://github.com/sdparekh/zUMIs.git
 cd zUMIs
 
-# mkdir -p ~/soft/icu
-# cd $_
-# wget https://github.com/unicode-org/icu/archive/refs/tags/release-58-3.tar.gz
-# tar -xzvf release-58-3.tar.gz
 
-# cd ~/soft/icu/icu-release-58-3/icu4c/source
-# ./configure
-# make
 
+## R based deps for R binaries of the 3.6x series
+export R_LIBS=~/R/x86_64-pc-linux-gnu-library/4.2/
 
 ## R based deps
-/usr/local/R/R-4.1.0/bin/R -e '
-.libPaths("~/R/x86_64-pc-linux-gnu-library/4.1")
+/usr/local/R/R-4.2.0/bin/R -e '
+.libPaths("~/R/x86_64-pc-linux-gnu-library/4.2")
+
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install(version = "3.15")
                                                 
 cran_pcks <- c("inflection","yaml","shiny","shinythemes","shinyBS","ggplot2","mclust","dplyr","cowplot","Matrix","BiocManager","devtools","stringdist","data.table","stringr","extraDistr")
                                                 
