@@ -386,3 +386,26 @@ do
                 gzip -c > "$OUT"/"$id"/grouped_"$item"_R1.fastq.gz
         done
 done
+
+
+## new dataset jan 2023, pdgfra, exporting relabelled reads
+##  instead of different files
+
+DATA=/home/gmoro/fastqs_PDGFRA/single_clean
+PARSER=/home/imallona/src/ebrunner_spectral/06_fastqs_harmonization/03_label_harmonized_fastqs.R
+
+for item in o303001_1-Unmodified_S1 o303001_2-RoCKseq_S2
+do
+    r1="$DATA"/"$item"_R1_001.fastq.gz
+    r2="$DATA"/"$item"_R2_001.fastq.gz
+
+    /usr/local/R/R-4.1.0/bin/Rscript "$PARSER" \
+     -r1 "$r1" \
+     -r2 "$r2" 2> "$item"_harmonized_R2.fastq 1> "$item"_harmonized_R1.fastq
+
+    wc -l *fastq
+    gzip *fastq
+done
+            
+
+
