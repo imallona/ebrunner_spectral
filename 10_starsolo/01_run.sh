@@ -49,27 +49,27 @@ GCTGGGGATGCGGTGGGCTCTATGG
 EOF
 
 
-echo -e 'gfp\tALIEN\texon\t1\t1435\t.\t+\t.\tgene_id "gfp"; transcript_id "gfpt";' > alien.gtf
+echo -e 'gfp\tALIEN\texon\t1\t1425\t.\t+\t.\tgene_id "gfp"; transcript_id "gfpt";' > alien.gtf
 
 cat $FA alien.fa > combined.fa
 cat $GTF alien.gtf > combined.gtf
 
 
 
-STAR --runMode genomeGenerate \
-      --runThreadN 30 \
+nice -n19 STAR --runMode genomeGenerate \
+      --runThreadN 50 \
       --genomeDir "$ID" \
       --genomeFastaFiles combined.fa
 
 rm combined.fa
 
 
-cd $_
+cd ~/ebrunner_spectral/star_solo
 
-STAR --runThreadN 20 \
-     --genomeDir /home/imallona/giulia/indices/GRCm38_gencode_M25_star27b_gfp \
+nice -n 19 STAR --runThreadN 5 \
+     --genomeDir /home/imallona/giulia/indices/GRCm38_gencode_M25_gfp_star27b/ \
      --readFilesCommand zcat \
-     --outFileNamePrefix ./star_outs_wta_test/ \
+     --outFileNamePrefix star_outs_wta_test/ \
      --readFilesIn "$r2" "$r1" \
      --soloType CB_UMI_Complex \
      --soloAdapterSequence GTGANNNNNNNNNGACA \
@@ -80,13 +80,15 @@ STAR --runThreadN 20 \
      --soloCellFilter EmptyDrops_CR \
      --outSAMattributes CB UB gx gn sS CR CY UR UY\
      --outSAMtype BAM SortedByCoordinate \
-     --quantMode TranscriptomeSAM GeneCounts
+     --quantMode GeneCounts \
+     --sjdbGTFfile ~/giulia/indices/combined.gtf \
+     --outTmpDir ~/tmp/thisone
 
 
-STAR --runThreadN 20 \
-     --genomeDir /home/imallona/giulia/indices/GRCm38_gencode_M25_star27b_gfp \
+nice -n19 STAR --runThreadN 5 \
+     --genomeDir /home/imallona/giulia/indices/GRCm38_gencode_M25_gfp_star27b/ \
      --readFilesCommand zcat \
-     --outFileNamePrefix ./star_outs_tso_test/ \
+     --outFileNamePrefix star_outs_tso_test/ \
      --readFilesIn "$r2" "$r1" \
      --soloType CB_UMI_Complex \
      --soloAdapterSequence AATGANNNNNNNNNCCAC \
@@ -97,4 +99,6 @@ STAR --runThreadN 20 \
      --soloCellFilter None \
      --outSAMattributes CB UB gx gn sS CR CY UR UY\
      --outSAMtype BAM SortedByCoordinate \
-     --quantMode TranscriptomeSAM GeneCounts
+     --quantMode GeneCounts \
+     --sjdbGTFfile ~/giulia/indices/combined.gtf \
+     --outTmpDir ~/tmp/another

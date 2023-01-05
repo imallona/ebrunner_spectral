@@ -387,28 +387,89 @@ do
         done
 done
 
+######## labelling here
 
-## new dataset jan 2023, pdgfra, exporting relabelled reads
-##  instead of different files
+
+# ## new dataset jan 2023, pdgfra, exporting relabelled reads
+# ##  instead of different files
+
+# DATA=/home/gmoro/fastqs_PDGFRA/single_clean
+# PARSER=/home/imallona/src/ebrunner_spectral/06_fastqs_harmonization/03_label_harmonized_fastqs.R
+
+# mkdir -p /home/imallona/ebrunner_spectral/harmonize_fastqs/labelled
+# cd $_
+
+# for item in "o303001_1-Unmodified_S1" "o303001_2-RoCKseq_S2"
+# do
+#     echo $item
+#     r1="$DATA"/"$item"_R1_001.fastq.gz
+#     r2="$DATA"/"$item"_R2_001.fastq.gz
+
+#     # /usr/local/R/R-4.1.0/bin/Rscript "$PARSER" \
+#     #  -r1 "$r1" \
+#     #  -r2 "$r2" 2> "$item"_harmonized_R2.fastq 1> "$item"_harmonized_R1.fastq
+
+#     /usr/local/R/R-4.1.0/bin/Rscript "$PARSER" \
+#      -r1 "$r1" \
+#      -r2 "$r2" > >(gzip -c > "$item"_harmonized_R1.fastq.gz) \
+#      2> >(gzip -c > "$item"_harmonized_R2.fastq.gz)
+# done
+
+
+## this is extremely slow, parallelize the old fashioned way again
 
 DATA=/home/gmoro/fastqs_PDGFRA/single_clean
 PARSER=/home/imallona/src/ebrunner_spectral/06_fastqs_harmonization/03_label_harmonized_fastqs.R
 
-mkdir -p /home/imallona/ebrunner_spectral/harmonize_fastqs/labelled
+mkdir -p /home/imallona/ebrunner_spectral/harmonize_fastqs/labelled/separated
+
 cd $_
 
 for item in "o303001_1-Unmodified_S1" "o303001_2-RoCKseq_S2"
 do
+    cd /home/imallona/ebrunner_spectral/harmonize_fastqs/labelled/separated
     echo $item
     r1="$DATA"/"$item"_R1_001.fastq.gz
     r2="$DATA"/"$item"_R2_001.fastq.gz
 
-    # /usr/local/R/R-4.1.0/bin/Rscript "$PARSER" \
-    #  -r1 "$r1" \
-    #  -r2 "$r2" 2> "$item"_harmonized_R2.fastq 1> "$item"_harmonized_R1.fastq
+    mkdir -p $item
+    cd $_
+    
+    NLINES=5000000
 
-    /usr/local/R/R-4.1.0/bin/Rscript "$PARSER" \
-     -r1 "$r1" \
-     -r2 "$r2" > >(gzip -c > "$item"_harmonized_R1.fastq.gz) \
-     2> >(gzip -c > "$item"_harmonized_R2.fastq.gz)
+    zcat "$r1" | split - -l "$NLINES" --filter='gzip > $FILE.r1.gz' part.
+    zcat "$r2"  | split - -l "$NLINES" --filter='gzip > $FILE.r2.gz' part.
+
+    N=10
+
+    (
+        for short_r1 in $(find . -name "part.*.r1.gz" | xargs -n"$N")
+                  # for r1 in $(find . -name "part.dk.r1.gz" | xargs -n"$N") 
+        do 
+            ((i=i%N)); ((i++==0)) && wait
+            echo $short_r1
+            curr=$(basename $short_r1 .r1.gz)
+            short_r2="$curr".r2.gz
+            echo $short_r2
+            
+            echo $i
+            /usr/local/R/R-4.1.0/bin/Rscript "$PARSER" \
+                                             -r1 "$short_r1" \
+                                             -r2 "$short_r2" > >(gzip -c > "$curr"_harmonized_R1.fastq.gz) \
+                                             2> >(gzip -c > "$curr"_harmonized_R2.fastq.gz) &
+
+            rm "$short_r1" "$short_r2"
+
+        done
+    )
+
+    find . -name "part*harmonized_R2.fastq.gz" | sort | xargs zcat | \
+        gzip -c > labelled_"$item"_R2.fastq.gz
+    find . -name "part*harmonized_R1.fastq.gz" | sort | xargs zcat | \
+        gzip -c > labelled_"$item"_R1.fastq.gz
+
+    rm "part*"
+
+
+   cd /home/imallona/ebrunner_spectral/harmonize_fastqs/labelled/separated
 done
