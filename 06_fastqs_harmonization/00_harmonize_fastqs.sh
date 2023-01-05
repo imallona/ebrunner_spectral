@@ -394,18 +394,21 @@ done
 DATA=/home/gmoro/fastqs_PDGFRA/single_clean
 PARSER=/home/imallona/src/ebrunner_spectral/06_fastqs_harmonization/03_label_harmonized_fastqs.R
 
-for item in o303001_1-Unmodified_S1 o303001_2-RoCKseq_S2
+mkdir -p /home/imallona/ebrunner_spectral/harmonize_fastqs/labelled
+cd $_
+
+for item in "o303001_1-Unmodified_S1" "o303001_2-RoCKseq_S2"
 do
+    echo $item
     r1="$DATA"/"$item"_R1_001.fastq.gz
     r2="$DATA"/"$item"_R2_001.fastq.gz
 
+    # /usr/local/R/R-4.1.0/bin/Rscript "$PARSER" \
+    #  -r1 "$r1" \
+    #  -r2 "$r2" 2> "$item"_harmonized_R2.fastq 1> "$item"_harmonized_R1.fastq
+
     /usr/local/R/R-4.1.0/bin/Rscript "$PARSER" \
      -r1 "$r1" \
-     -r2 "$r2" 2> "$item"_harmonized_R2.fastq 1> "$item"_harmonized_R1.fastq
-
-    wc -l *fastq
-    gzip *fastq
+     -r2 "$r2" > >(gzip -c > "$item"_harmonized_R1.fastq.gz) \
+     2> >(gzip -c > "$item"_harmonized_R2.fastq.gz)
 done
-            
-
-
