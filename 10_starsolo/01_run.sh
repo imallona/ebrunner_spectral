@@ -61,7 +61,7 @@ nice -n19 STAR --runMode genomeGenerate \
       --genomeDir "$ID" \
       --genomeFastaFiles combined.fa
 
-rm combined.fa
+# rm combined.fa
 
 
 cd ~/ebrunner_spectral/star_solo
@@ -84,6 +84,10 @@ nice -n 19 STAR --runThreadN 5 \
      --sjdbGTFfile ~/giulia/indices/combined.gtf \
      --outTmpDir ~/tmp/thisone
 
+## this is to estimate 10k cells, not 3k (hardcoded by default)
+STAR --runMode soloCellFiltering  star_outs_wta_test/Solo.out/Gene/raw \
+     star_outs_wta_test_10k/  \
+     --soloCellFilter EmptyDrops_CR  10000 0.99 10 45000 90000 500 0.01 20000 0.05 10000
 
 nice -n19 STAR --runThreadN 5 \
      --genomeDir /home/imallona/giulia/indices/GRCm38_gencode_M25_gfp_star27b/ \
@@ -102,3 +106,29 @@ nice -n19 STAR --runThreadN 5 \
      --quantMode GeneCounts \
      --sjdbGTFfile ~/giulia/indices/combined.gtf \
      --outTmpDir ~/tmp/another
+
+
+# strings(s) position of Cell Barcode(s) on the barcode read.
+# Presently only works with –soloType CB UMI Complex, and barcodes are
+# assumed to be on Read2.
+# Format for each barcode: startAnchor startPosition endAnchor endPosition
+# start(end)Anchor defines the Anchor Base for the CB: 0: read start; 1: read
+# end; 2: adapter start; 3: adapter end
+# start(end)Position is the 0-based position with of the CB start(end) with
+# respect to the Anchor Base
+# String for different barcodes are separated by space.
+
+
+# Now try to extract the CBs-assigned for TSO and WTAs
+
+cd ~/ebrunner_spectral/star_solo/star_outs_wta_test
+
+samtools view -h Aligned.sortedByCoord.out.bam | grep -vP "CR:Z:\t" | samtools view  -Sb > with_CR.bam
+samtools index -@ 10 with_CR.bam
+
+
+cd ~/ebrunner_spectral/star_solo/star_outs_tso_test
+
+samtools view -h Aligned.sortedByCoord.out.bam | grep -vP "CR:Z:\t" | samtools view  -Sb > with_CR.bam
+samtools index -@ 10 with_CR.bam
+
