@@ -1,4 +1,9 @@
 #!/bin/bash
+##
+## Preliminary index build + STARsolo run
+##
+## Izaskun Mallona
+## 05 Jan 2023
 
 # https://github.com/alexdobin/STAR/issues/1607#issuecomment-1310028944
 
@@ -63,6 +68,9 @@ nice -n19 STAR --runMode genomeGenerate \
 
 # rm combined.fa
 
+## indexing end
+
+
 
 cd ~/ebrunner_spectral/star_solo
 
@@ -82,7 +90,7 @@ nice -n 19 STAR --runThreadN 5 \
      --outSAMtype BAM SortedByCoordinate \
      --quantMode GeneCounts \
      --sjdbGTFfile ~/giulia/indices/combined.gtf \
-     --outTmpDir ~/tmp/thisone
+     --outTmpDir ~/tmp/tmp
 
 ## this is to estimate 10k cells, not 3k (hardcoded by default)
 STAR --runMode soloCellFiltering  star_outs_wta_test/Solo.out/Gene/raw \
@@ -95,7 +103,7 @@ nice -n19 STAR --runThreadN 5 \
      --outFileNamePrefix star_outs_tso_test/ \
      --readFilesIn "$r2" "$r1" \
      --soloType CB_UMI_Complex \
-     --soloAdapterSequence AATGANNNNNNNNNCCAC \
+     --soloAdapterSequence AATGNNNNNNNNNCCAC \
      --soloCBposition 2_-9_2_-1 2_4_2_12 2_17_2_25 \
      --soloUMIposition 3_10_3_17 \
      --soloCBwhitelist "$SRC"/07_barcodes_translation_sbg/data/CLS1.txt "$SRC"/07_barcodes_translation_sbg/data/CLS2.txt "$SRC"/07_barcodes_translation_sbg/data/CLS3.txt \
@@ -108,18 +116,7 @@ nice -n19 STAR --runThreadN 5 \
      --outTmpDir ~/tmp/another
 
 
-# strings(s) position of Cell Barcode(s) on the barcode read.
-# Presently only works with –soloType CB UMI Complex, and barcodes are
-# assumed to be on Read2.
-# Format for each barcode: startAnchor startPosition endAnchor endPosition
-# start(end)Anchor defines the Anchor Base for the CB: 0: read start; 1: read
-# end; 2: adapter start; 3: adapter end
-# start(end)Position is the 0-based position with of the CB start(end) with
-# respect to the Anchor Base
-# String for different barcodes are separated by space.
-
-
-# Now try to extract the CBs-assigned for TSO and WTAs
+# Extract the CBs-assigned alns for TSO and WTA bam files
 
 cd ~/ebrunner_spectral/star_solo/star_outs_wta_test
 
