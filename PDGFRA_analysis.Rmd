@@ -1,0 +1,358 @@
+---
+title: "PDGFRA analysis"
+output: html_document
+---
+
+## PDGFRA analysis
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+Loading packages 
+
+```{r}
+library(rmarkdown)
+library(Seurat)
+library(dplyr)
+library(patchwork)
+library(ggplot2)
+library(scDblFinder)
+library(BiocManager)
+library(tidyr)
+library(gridExtra)
+library(stringr)
+library(reshape2)
+```
+
+Loading data for UMIs for files from SB
+
+```{r}
+
+unmod_single <- read.csv("~/RStudio/SPECTRAL/PDGFRA/o303001_1-Unmodified_RSEC_MolsPerCell.csv", row.names=1, comment.char="#")
+unmod_double <- read.csv("~/RStudio/SPECTRAL/PDGFRA/o303002_1-Unmodified_RSEC_MolsPerCell.csv", row.names=1, comment.char="#")
+mod_single <- read.csv("~/RStudio/SPECTRAL/PDGFRA/o303001_2-RoCKseq_RSEC_MolsPerCell.csv", row.names=1, comment.char="#")
+mod_double <- read.csv("~/RStudio/SPECTRAL/PDGFRA/o303002_2-RoCKseq_RSEC_MolsPerCell.csv", row.names=1, comment.char="#")
+
+t_unmod_single <- t(unmod_single)
+t_mod_single <- t(mod_single)
+t_unmod_double <- t(unmod_double)
+t_mod_double <- t(mod_double)
+
+```
+
+Checking which genes have the most UMIs (used for plots below)
+
+```{r}
+head(sort(rowSums(t_unmod_single),decreasing=TRUE),n=30)
+head(sort(rowSums(t_mod_single),decreasing=TRUE),n=1000)
+```
+
+Number of cells in samples
+
+```{r}
+length(colnames(t_unmod_single)) # number of cells: 68000
+length(colnames(t_mod_single)) # number of cells: 6674
+length(colnames(t_unmod_double)) # number of cells: 6765
+length(colnames(t_mod_double)) # number of cells: 6486
+```
+
+Generating Seurat violin plots 
+
+```{r}
+S_t_unmod_single<- CreateSeuratObject(counts = t_unmod_single, min.cells = 3, min.features = 200)
+S_t_mod_single<- CreateSeuratObject(counts = t_mod_single, min.cells = 3, min.features = 200)
+S_t_unmod_double<- CreateSeuratObject(counts = t_unmod_double, min.cells = 3, min.features = 200)
+S_t_mod_double<- CreateSeuratObject(counts = t_mod_double, min.cells = 3, min.features = 200)
+
+S_t_unmod_single[["percent.mt"]] <- PercentageFeatureSet(S_t_unmod_single, pattern = "^mt")
+S_t_mod_single[["percent.mt"]] <- PercentageFeatureSet(S_t_mod_single, pattern = "^mt")
+S_t_unmod_double[["percent.mt"]] <- PercentageFeatureSet(S_t_unmod_double, pattern = "^mt")
+S_t_mod_double[["percent.mt"]] <- PercentageFeatureSet(S_t_mod_double, pattern = "^mt")
+
+VlnPlot(S_t_unmod_single, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3,cols="violet") 
+VlnPlot(S_t_mod_single, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3,cols="green") 
+VlnPlot(S_t_unmod_double, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3,cols="violet") 
+VlnPlot(S_t_mod_double, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3,cols="green")
+```
+
+Number of cells where transcript of interest was detected and number of UMIs
+
+```{r}
+which(rownames(t_unmod_single)=="H2B_eGFP_no_cap") #13742
+which(rownames(t_unmod_double)=="H2B_eGFP_no_cap") #13731
+which(rownames(t_mod_single)=="H2B_eGFP_no_cap") #13307
+which(rownames(t_mod_double)=="H2B_eGFP_no_cap") #12816
+
+egfp_barcodes<-colnames(t_unmod_single[,which(t_unmod_single[13742,]>0)])
+length(egfp_barcodes)
+sum(t_unmod_single[13742,])
+
+
+egfp_barcodes<-colnames(t_unmod_double[,which(t_unmod_double[13731,]>0)])
+length(egfp_barcodes)
+sum(t_unmod_double[13731,])
+
+
+egfp_barcodes<-colnames(t_mod_single[,which(t_mod_single[13307,]>0)])
+length(egfp_barcodes)
+sum(t_mod_single[13307,])
+
+
+egfp_barcodes<-colnames(t_mod_double[,which(t_mod_double[12816,]>0)])
+length(egfp_barcodes)
+sum(t_mod_double[12816,])
+```
+
+Barcode overlap single and double clean
+
+```{r}
+length(intersect(colnames(t_mod_single),colnames(t_mod_double)))
+length(intersect(colnames(t_mod_single),colnames(t_unmod_double)))
+```
+
+Same as above for reads
+
+```{r}
+
+reads_unmod_single <- read.csv("~/RStudio/SPECTRAL/PDGFRA/o303001_1-Unmodified_RSEC_ReadsPerCell.csv", row.names=1, comment.char="#")
+reads_unmod_double <- read.csv("~/RStudio/SPECTRAL/PDGFRA/o303002_1-Unmodified_RSEC_ReadsPerCell.csv", row.names=1, comment.char="#")
+reads_mod_single <- read.csv("~/RStudio/SPECTRAL/PDGFRA/o303001_2-RoCKseq_RSEC_ReadsPerCell.csv", row.names=1, comment.char="#")
+reads_mod_double <- read.csv("~/RStudio/SPECTRAL/PDGFRA/o303002_2-RoCKseq_RSEC_ReadsPerCell.csv", row.names=1, comment.char="#")
+
+t_reads_unmod_single <- t(reads_unmod_single)
+t_reads_mod_single <- t(reads_mod_single)
+t_reads_unmod_double <- t(reads_unmod_double)
+t_reads_mod_double <- t(reads_mod_double)
+
+length(colnames(t_unmod_single)) # number of cells: 6800
+length(colnames(t_mod_single)) # number of cells: 6674
+length(colnames(t_unmod_double)) # number of cells: 6765
+length(colnames(t_mod_double)) # number of cells: 6486
+
+S_t_unmod_single<- CreateSeuratObject(counts = t_unmod_single, min.cells = 3, min.features = 200,project="unmod_single")
+S_t_mod_single<- CreateSeuratObject(counts = t_mod_single, min.cells = 3, min.features = 200,project="mod_single")
+S_t_unmod_double<- CreateSeuratObject(counts = t_unmod_double, min.cells = 3, min.features = 200,project="unmod_double")
+S_t_mod_double<- CreateSeuratObject(counts = t_mod_double, min.cells = 3, min.features = 200,project="mod_double")
+
+S_t_unmod_single[["percent.mt"]] <- PercentageFeatureSet(S_t_unmod_single, pattern = "^mt")
+S_t_mod_single[["percent.mt"]] <- PercentageFeatureSet(S_t_mod_single, pattern = "^mt")
+S_t_unmod_double[["percent.mt"]] <- PercentageFeatureSet(S_t_unmod_double, pattern = "^mt")
+S_t_mod_double[["percent.mt"]] <- PercentageFeatureSet(S_t_mod_double, pattern = "^mt")
+
+```
+
+Additional plot 1: Seurat vln plots with all four samples together
+
+```{r}
+
+alldata<-merge(S_t_unmod_single,c(S_t_mod_single,S_t_unmod_double,S_t_mod_double),add.cell.ids=c("unmod_single","mod_single","unmod_double","mod_double"))
+
+alldata$orig.ident <- factor(x = alldata$orig.ident, levels = c("unmod_single","mod_single","unmod_double","mod_double"))
+
+alldata[["percent.mt"]] <- PercentageFeatureSet(alldata, pattern = "^mt")
+
+VlnPlot(alldata, group.by= "orig.ident",features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3, pt.size = 0) 
+
+```
+
+Additional plot 2: additional QC plots and coloring genes for transcript of interest (for example Epcam)
+
+```{r}
+egfp_barcodes<-colnames(t_mod_single[,which(t_mod_single[6670,]>0)])
+egfp_Seurat<-S_t_mod_single[,egfp_barcodes]
+
+p1<-ggplot(data=NULL,(aes(x=S_t_mod_single$nCount_RNA, y=S_t_mod_single$nFeature_RNA))) +
+  geom_point()+ xlab("nCounts")+ ylab("nFeature")+ ggtitle("nCounts vs nFeature")+ theme_bw()+
+  geom_point(data=NULL,(aes(x=egfp_Seurat$nCount_RNA,y=egfp_Seurat$nFeature_RNA)),colour="green")
+
+p2<-ggplot(data=NULL,(aes(x=S_t_mod_single$nFeature_RNA, y=S_t_mod_single$percent.mt))) +
+  geom_point()+ xlab("nFeature")+ ylab("percent.mt")+ ggtitle("nCounts vs percent.mt")+ theme_bw()+
+  geom_point(data=NULL,(aes(x=egfp_Seurat$nFeature_RNA,y=egfp_Seurat$percent.mt)),colour="green")
+
+p3<-ggplot(data=NULL,(aes(x=S_t_mod_single$nCount_RNA, y=S_t_mod_single$percent.mt))) +
+  geom_point()+ xlab("nCounts")+ ylab("percent.mt")+ ggtitle("nCounts vs percent.mt")+ theme_bw()+
+  geom_point(data=NULL,(aes(x=egfp_Seurat$nCount_RNA,y=egfp_Seurat$percent.mt)),colour="green")
+
+grid.arrange(p1,p2,p3,ncol=3)
+```
+
+Additional plot and analysis 3: UMAPs and differentially expressed markers 
+
+```{r}
+### umap 
+
+S_t_unmod_single <- NormalizeData(S_t_unmod_single, normalization.method = "LogNormalize", scale.factor = 10000)
+S_t_unmod_single <- FindVariableFeatures(S_t_unmod_single, selection.method = "vst", nfeatures = 2000)
+all.genes <- rownames(S_t_unmod_single)
+S_t_unmod_single <- ScaleData(S_t_unmod_single, features = all.genes)
+S_t_unmod_single <- RunPCA(S_t_unmod_single, features = VariableFeatures(object = S_t_unmod_single))
+
+S_t_unmod_single <- JackStraw(S_t_unmod_single, num.replicate = 100)
+S_t_unmod_single <- ScoreJackStraw(S_t_unmod_single, dims = 1:20)
+JackStrawPlot(S_t_unmod_single, dims = 1:15)
+ElbowPlot(S_t_unmod_single)
+
+S_t_unmod_single_1 <- FindNeighbors(S_t_unmod_single, dims = 1:10)
+S_t_unmod_single_1 <- FindClusters(S_t_unmod_single_1, resolution = 0.5)
+S_t_unmod_single_1 <- RunUMAP(S_t_unmod_single_1, dims = 1:10)
+DimPlot(S_t_unmod_single_1, reduction = "umap")
+
+FeaturePlot(S_t_unmod_single_1, features = c("Frzb"))
+
+cluster2_3.markers <- FindMarkers(S_t_unmod_single_1, ident.1 = 2, ident.2 = c(3), min.pct = 0.25)
+head(cluster2_3.markers, n = 20)
+
+cluster.markers <- FindMarkers(S_t_unmod_single_1, ident.1 = c(0,3), ident.2 = c(2,1,4), min.pct = 0.25)
+head(cluster.markers, n = 50)
+
+
+### same with mod 
+
+S_t_mod_single <- NormalizeData(S_t_mod_single, normalization.method = "LogNormalize", scale.factor = 10000)
+S_t_mod_single <- FindVariableFeatures(S_t_mod_single, selection.method = "vst", nfeatures = 2000)
+all.genes <- rownames(S_t_mod_single)
+S_t_mod_single <- ScaleData(S_t_mod_single, features = all.genes)
+S_t_mod_single <- RunPCA(S_t_mod_single, features = VariableFeatures(object = S_t_mod_single))
+
+S_t_mod_single_1 <- FindNeighbors(S_t_mod_single, dims = 1:10)
+S_t_mod_single_1 <- FindClusters(S_t_mod_single_1, resolution = 0.5)
+S_t_mod_single_1 <- RunUMAP(S_t_mod_single_1, dims = 1:10)
+DimPlot(S_t_mod_single_1, reduction = "umap")
+
+FeaturePlot(S_t_mod_single_1, features = c("Pcolce2"))
+```
+
+Additional plots 4: histograms comparison reads vs UMIs for top 100 genes
+
+```{r}
+
+sorted_unmod_single_umis<-data.frame(head(sort(rowSums(t_unmod_single),decreasing=TRUE),n=100))
+
+top_unmod_single_reads<-t_reads_unmod_single[rownames(sorted_unmod_single_umis),]
+sorted_unmod_single_reads<-data.frame(rowSums(top_unmod_single_reads))
+
+unmod_single_umis_reads<-merge(sorted_unmod_single_umis,sorted_unmod_single_reads,by="row.names",all.x=TRUE)
+colnames(unmod_single_umis_reads)<-c("genes","umis","reads")
+
+melted_unmod_single_umis_reads <- melt(unmod_single_umis_reads[,c('genes','umis','reads')],id.vars = 1)
+
+theme_set(theme_classic())
+
+ggplot(melted_unmod_single_umis_reads,aes(x=factor(genes),y = as.integer(value),fill = factor(variable))) + 
+  geom_bar(stat = "identity",position = "dodge")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+  labs(x="genes",y=" ")
+
+## next comparison
+
+sorted_unmod_single_umis<-data.frame(head(sort(rowSums(t_unmod_single),decreasing=TRUE),n=100))
+
+top_unmod_single_reads<-t_reads_unmod_single[rownames(sorted_unmod_single_umis),]
+sorted_unmod_single_reads<-data.frame(rowSums(top_unmod_single_reads))
+
+top_mod_single_reads<-t_reads_mod_single[rownames(sorted_unmod_single_umis),]
+sorted_mod_single_reads<-data.frame(rowSums(top_mod_single_reads))
+
+single_reads<-merge(sorted_unmod_single_reads,sorted_mod_single_reads,by="row.names",all.x=TRUE)
+colnames(single_reads)<-c("genes","unmod","mod")
+
+melted_single_reads <- melt(single_reads[,c('genes','unmod','mod')],id.vars = 1)
+
+theme_set(theme_classic())
+
+ggplot(melted_single_reads,aes(x=factor(genes),y = as.integer(value),fill = factor(variable))) + 
+  geom_bar(stat = "identity",position = "dodge")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+  labs(x="genes",y=" ")
+
+
+### comparison umis unmod vs mod for genes with top 100 umis unmod 
+
+sorted_unmod_single_umis<-data.frame(head(sort(rowSums(t_unmod_single),decreasing=TRUE),n=100))
+
+top_mod_single_umis<-t_mod_single[rownames(sorted_unmod_single_umis),]
+sorted_mod_single_umis<-data.frame(rowSums(top_mod_single_umis))
+
+single_umis<-merge(sorted_unmod_single_umis,sorted_mod_single_umis,by="row.names",all.x=TRUE)
+colnames(single_umis)<-c("genes","unmod","mod")
+
+melted_single_umis <- melt(single_umis[,c('genes','unmod','mod')],id.vars = 1)
+
+theme_set(theme_classic())
+
+ggplot(melted_single_umis,aes(x=factor(genes),y = as.integer(value),fill = factor(variable))) + 
+  geom_bar(stat = "identity",position = "dodge")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+  labs(x="genes",y=" ")
+
+
+## next comparison 
+
+sorted_unmod_double_umis<-data.frame(head(sort(rowSums(t_unmod_double),decreasing=TRUE),n=100))
+
+top_unmod_double_reads<-t_reads_unmod_single[rownames(sorted_unmod_double_umis),]
+sorted_unmod_double_reads<-data.frame(rowSums(top_unmod_double_reads))
+
+top_mod_double_reads<-t_reads_mod_double[rownames(sorted_unmod_double_umis),]
+sorted_mod_double_reads<-data.frame(rowSums(top_mod_double_reads))
+
+double_reads<-merge(sorted_unmod_double_reads,sorted_mod_double_reads,by="row.names",all.x=TRUE)
+colnames(double_reads)<-c("genes","unmod","mod")
+
+melted_double_reads <- melt(double_reads[,c('genes','unmod','mod')],id.vars = 1)
+
+theme_set(theme_classic())
+
+ggplot(melted_double_reads,aes(x=factor(genes),y = as.integer(value),fill = factor(variable))) + 
+  geom_bar(stat = "identity",position = "dodge")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+  labs(x="genes",y=" ")
+
+## next comparison
+
+sorted_unmod_double_umis<-data.frame(head(sort(rowSums(t_unmod_double),decreasing=TRUE),n=100))
+
+top_mod_double_umis<-t_mod_single[rownames(sorted_unmod_double_umis),]
+sorted_mod_double_umis<-data.frame(rowSums(top_mod_double_umis))
+
+double_umis<-merge(sorted_unmod_double_umis,sorted_mod_double_umis,by="row.names",all.x=TRUE)
+colnames(double_umis)<-c("genes","unmod","mod")
+
+melted_double_umis <- melt(double_umis[,c('genes','unmod','mod')],id.vars = 1)
+
+theme_set(theme_classic())
+
+ggplot(melted_double_umis,aes(x=factor(genes),y = as.integer(value),fill = factor(variable))) + 
+  geom_bar(stat = "identity",position = "dodge")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+  labs(x="genes",y=" ")
+
+```
+
+Scatterplot to compare reads for all genes unmod vs mod 
+
+```{r}
+
+sum_unmod_single<-rowSums(t_reads_unmod_single)
+sum_mod_single<-rowSums(t_reads_mod_single)
+
+sum_single<-merge(sum_unmod_single,sum_mod_single,by="row.names",all.x=TRUE)
+colnames(sum_single)<-c("genes","unmod","mod")
+
+sum_single<-na.omit(sum_single)
+
+theme_set(theme_classic())
+
+ggplot(sum_single, aes(x=unmod, y=mod)) +
+  geom_point(size=1)+
+  geom_text(aes(label=genes),hjust=0, vjust=0,size=4)+
+  geom_abline(intercept = 0, slope = 1, size = 0.5)+
+  xlim(0,300000)+
+  ylim(0,300000)
+
+```
+
+
+
