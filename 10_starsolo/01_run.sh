@@ -129,3 +129,29 @@ cd ~/ebrunner_spectral/star_solo/star_outs_tso_test
 samtools view -h Aligned.sortedByCoord.out.bam | grep -vP "CR:Z:\t" | samtools view  -Sb > with_CR.bam
 samtools index -@ 10 with_CR.bam
 
+# awk '$1 ~ /^#/ {print $0;next} {print $0 | "sort -k1,1 -k4,4n -k5,5n"}' "$ID".gtf > out_sorted.gtf
+
+
+## Strand-specific mapping
+
+nice -n19 STAR --runThreadN 5 \
+     --genomeDir /home/imallona/giulia/indices/GRCm38_gencode_M25_gfp_star27b/ \
+     --readFilesCommand zcat \
+     --outFileNamePrefix star_outs_tso_strand_forward_more_flags \
+     --readFilesIn "$r2" "$r1" \
+     --soloType CB_UMI_Complex \
+     --soloAdapterSequence AATGNNNNNNNNNCCAC \
+     --soloCBposition 2_-9_2_-1 2_4_2_12 2_17_2_25 \
+     --soloUMIposition 3_10_3_17 \
+     --soloCBwhitelist "$SRC"/07_barcodes_translation_sbg/data/CLS1.txt "$SRC"/07_barcodes_translation_sbg/data/CLS2.txt "$SRC"/07_barcodes_translation_sbg/data/CLS3.txt \
+     --soloCellFilter None \
+     --outSAMattributes CB UB gx gn sM sS sQ CR CY UR UY\
+     --outSAMtype BAM SortedByCoordinate \
+     --quantMode GeneCounts \
+     --sjdbGTFfile ~/giulia/indices/combined.gtf \
+     --outTmpDir ~/tmp/another \
+     --soloStrand Forward \
+     --soloUMIdedup 1MM_All \
+     --soloAdapterMismatchesNmax 1 \
+     --soloCBmatchWLtype 1MM
+     
