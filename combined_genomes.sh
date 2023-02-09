@@ -17,7 +17,7 @@ GTFS=([human]="../gencode.v38.basic.annotation.gtf" [mouse]="../gencode.vM25.ann
 
 NTHREADS=20
 ID=human_mouse_alien_WPRE_combined
-STAR=/home/imallona/soft/star/bin/STAR
+STAR=/home/imallona/soft/star/STAR-2.7.10b
 
 mkdir -p /home/gmoro/indices
 cd "$_"
