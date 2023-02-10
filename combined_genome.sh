@@ -17,7 +17,7 @@ GTFS=([human]="../gencode.v38.basic.annotation.gtf" [mouse]="../gencode.vM25.ann
 
 NTHREADS=20
 ID=human_mouse_alien_WPRE_combined
-STAR=/home/imallona/soft/star/STAR-2.7.10b
+export PATH=/home/imallona/soft/star/STAR-2.7.10b/source:$PATH
 
 mkdir -p /home/gmoro/indices
 cd "$_"
@@ -40,7 +40,7 @@ cat *gtf.prepend > combined.gtf
 
 rm *prepend
 
-$STAR --runMode genomeGenerate \
+STAR --runMode genomeGenerate \
       --runThreadN "$NTHREADS" \
       --genomeDir "$ID" \
       --genomeFastaFiles combined.fa
