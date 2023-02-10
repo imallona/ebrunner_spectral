@@ -7,26 +7,45 @@
 ## 3rd Dec 2021
 
 
-NAMES=(human mouse alien_WPRE)
-
-declare -A FAS
-FAS=([human]="../GRCh38.p13.genome.fa" [mouse]="../GRCm38.p6.genome.fa" [alien]="../alien_WPRE.fa")
-
-declare -A GTFS
-GTFS=([human]="../gencode.v38.basic.annotation.gtf" [mouse]="../gencode.vM25.annotation.gtf" [alien]="../alien_genes_WPRE.gtf")
-
 NTHREADS=20
-ID=human_mouse_alien_WPRE_combined
 export PATH=/home/imallona/soft/star/STAR-2.7.10b/source:$PATH
 
-mkdir -p /home/gmoro/indices
-cd "$_"
 
-cd /home/gmoro/indices
+ID=human_mouse_alien_WPRE_combined_test
+
+mkdir -p /home/imallona/indices
+cd /home/imallona/indices
+
 mkdir -p "$ID"
 cd "$ID"
 
+
+NAMES=(human mouse alien)
+
+declare -A FAS
+FAS=([human]="/home/gmoro/indices/GRCh38.p13.genome.fa" [mouse]="/home/gmoro/indices//GRCm38.p6.genome.fa" [alien]="/home/gmoro/indices//alien_WPRE.fa")
+
+declare -A GTFS
+GTFS=([human]="/home/gmoro/indices//gencode.v38.basic.annotation.gtf" [mouse]="/home/gmoro/indices//gencode.vM25.annotation.gtf" [alien]="/home/gmoro/indices//alien_genes_WPRE.gtf")
+
+
+
+# check files exist/their sizes
+for ref in ${NAMES[@]}
+do
+    echo "$ref"
+    
+    echo ${GTFS[$ref]}
+    ls -lh ${GTFS[$ref]}
+
+    echo ${FAS[$ref]}
+    ls -lh ${FAS[$ref]}
+
+    echo "-----------------"
+done
+
 ## prepend the species/assembly to each scaffold/chromosome
+
 for ref in ${NAMES[@]}
 do
     echo "$ref"
