@@ -1,36 +1,147 @@
-### clearing environment 
+---
+title: "starsolo rock and roi, ground truth experiment"
+author: "Giulia Moro, Izaskun Mallona"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+    code_download: true
+    number_sections: true
+    df_print: kable
+    theme: lumen
+params:
+  seed: 665
+---
 
-rm(list=ls())
 
 ### loading packages 
 
+```{r warning = FALSE, message = FALSE}
+## .libPaths('/home/imallona/R/x86_64-pc-linux-gnu-library/4.1')
 library(Seurat)
-library(dplyr)
-library(patchwork)
+## library(dplyr)
+## library(patchwork)
 library(ggplot2)
-library(scDblFinder)
-library(BiocManager)
-library(tidyr)
-library(gridExtra)
-library(stringr)
-library(reshape2)
+## library(scDblFinder)
+## library(BiocManager)
+## library(tidyr)
+## library(gridExtra)
+## library(stringr)
+## library(reshape2)
 library(Matrix)
-library(readr)
+## library(readr)
+library(rmarkdown)
+library(knitr)
+```
 
+
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+knitr::opts_chunk$set(autodep = TRUE, cache = TRUE,
+                      fig.path = "11_liu_patients/",
+                      fig.width = 5, fig.height = 5,
+                      dev = c("png", "svg"),
+                      dev.args = list(png = list(type = "cairo")),
+                      warning = FALSE, message = FALSE)
+```
 
 ### RoCK ROI TSO
 
+```{r}
 counts_RR_TSO <- readMM("/home/gmoro/RStudio/Cell_line_exp/matrix_RR_TSO_new.mtx")
 
-genes_RR_TSO <- read_tsv("/home/gmoro/RStudio/Cell_line_exp/features_RR_TSO_new.tsv", col_names = FALSE)
-gene_ids_RR_TSO <- genes_RR_TSO$X2 # ensembl would be X1
+genes_RR_TSO <- read.table("/home/gmoro/RStudio/Cell_line_exp/features_RR_TSO_new.tsv", header = FALSE)
 
-cell_ids_RR_TSO <- read_tsv("/home/gmoro/RStudio/Cell_line_exp/barcodes_RR_TSO_new.tsv", col_names = FALSE)$X1
+cell_ids_RR_TSO <- read.table("/home/gmoro/RStudio/Cell_line_exp/barcodes_RR_TSO_new.tsv", header = FALSE)
 
-rownames(counts_RR_TSO) <- gene_ids_RR_TSO
-colnames(counts_RR_TSO) <- cell_ids_RR_TSO
+foo <- ReadMtx(
+  mtx = "/home/gmoro/RStudio/Cell_line_exp/matrix_RR_TSO_new.mtx",
+  cells = "/home/gmoro/RStudio/Cell_line_exp/barcodes_RR_TSO_new.tsv",
+  features = "/home/gmoro/RStudio/Cell_line_exp/features_RR_TSO_new.tsv",
+  cell.column = 1,
+  feature.column = 1)
+  
+```
 
-rowSums(head(counts_RR_TSO,17))
+```{r}
+so <- list()
+```
+
+```{r}
+stopifnot(all(rownames(foo) ==  genes_RR_TSO$V1))
+
+rownames(foo) <- sprintf('%s__%s', genes_RR_TSO$V2, genes_RR_TSO$V1)
+
+so$tso <- CreateSeuratObject(counts = foo, min.cells = 0, min.features = 0)
+
+## grep('^mt', rownames(so$tso), value = TRUE)
+so$tso[["percent.mt"]] <- PercentageFeatureSet(so$tso, pattern = "^mt")
+so$tso[["percent.mt"]] [is.na(so$tso[["percent.mt"]] )] <- 0
+so$tso$sample <- c("RoCK_ROI_TSO")
+
+rm(foo, counts_RR_TSO, genes_RR_TSO, cell_ids_RR_TSO)
+```
+
+
+```{r}
+## str(so$tso@meta.data)
+
+VlnPlot(so$tso, features = c("nFeature_RNA", "nCount_RNA", 'percent.mt'), group.by = sample)
+```
+
+### RoCK ROI WTA
+
+```{r}
+foo <- ReadMtx(
+  mtx = "/home/gmoro/RStudio/Cell_line_exp/matrix_RR_WTA_new.mtx",
+  cells = "/home/gmoro/RStudio/Cell_line_exp/barcodes_RR_WTA_new.tsv",
+  features = "/home/gmoro/RStudio/Cell_line_exp/features_RR_WTA_new.tsv",
+  cell.column = 1,
+  feature.column = 1)
+
+
+genes_RR_WTA <- read.table("/home/gmoro/RStudio/Cell_line_exp/features_RR_WTA_new.tsv", header = FALSE)
+
+cell_ids_RR_WTA <- read.table("/home/gmoro/RStudio/Cell_line_exp/barcodes_RR_WTA_new.tsv", header = FALSE)
+
+stopifnot(all(rownames(foo) ==  genes_RR_WTA$V1))
+
+rownames(foo) <- sprintf('%s__%s', genes_RR_WTA$V2, genes_RR_WTA$V1)
+
+so$wta <- CreateSeuratObject(counts = foo, min.cells = 1, min.features = 1)
+
+so$wta[["percent.mt"]] <- PercentageFeatureSet(so$wta, pattern = "^mt")
+so$wta[["percent.mt"]] [is.na(so$wta[["percent.mt"]] )] <- 0
+so$wta$sample <- c("RoCK_ROI_WTA")
+```
+
+```{r}
+rm(foo,  genes_RR_WTA, cell_ids_RR_WTA)
+```
+
+TSO CBs: only those overlapping WTA's.
+
+```{r}
+wta_cells <- colnames(so$wta)
+so$tso <- subset(so$tso, cells = wta_cells)
+
+```
+
+```{r}
+for (item in names(so)) {
+    so[[item]]@meta.data$orig.ident <- so[[item]]@meta.data$sample
+
+    print(VlnPlot(so[[item]],
+                  features = c("nFeature_RNA", "nCount_RNA", 'percent.mt'),
+                  group.by = 'sample')) #+ ggtitle(item))
+}
+```
+
+
+```{r, cache = FALSE}
+knitr::knit_exit()
+```
 
 ### other way to do it: 
 
