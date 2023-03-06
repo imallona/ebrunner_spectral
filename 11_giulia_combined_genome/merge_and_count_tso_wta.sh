@@ -48,10 +48,17 @@ echo "mind we need to update the column indices to get the CR and the RG as RG!"
 echo "mind we need to deduplicate umis!"
 echo ' for that, just print UMI and CB (corrected) last and then uniq with unix'
 
-samtools merge -@ $NTHREADS - -r tiny_tso.bam tiny_wta.bam | samtools view -h  | grep -vP "CR:Z:\t" | \
-    awk '{OFS=FS="\t"; print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,"MO"substr($21,3 ),$21"_"substr($15, 6)}' |\
+# samtools merge -@ $NTHREADS - -r tiny_tso.bam tiny_wta.bam | samtools view -h  | grep -vP "CR:Z:\t" | \
+#     awk '{OFS=FS="\t"; print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,"MO"substr($21,3 ),$21"_"substr($15, 6), $20}' | uniq -f 20 |\
+#     samtools view -Sb -@ $NTHREADS | \
+#     samtools sort -@ $NTHREADS  > merged.bam
+
+## mind that the uniq does umi dedup using the new RG (with CB and MO) and the UB
+samtools merge -@ $NTHREADS - -r tiny_tso.bam tiny_wta.bam | samtools view -h  | grep -vP "CB:Z:-\t" | \
+    awk '{OFS=FS="\t"; print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,"MO"substr($21,3 ),$21"_"substr($19, 6), $20}' | uniq -f 20 |\
     samtools view -Sb -@ $NTHREADS | \
     samtools sort -@ $NTHREADS  > merged.bam
+
 
 echo "think of another bamfile/another flag for non canonical, no-CR containing alignments"
 echo untested
