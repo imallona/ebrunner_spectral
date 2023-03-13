@@ -188,5 +188,7 @@ $FEATURECOUNTS -a alien.gtf \
                -O \
                -M  \
                -T "$NTHREADS" \
-               --byReadGroup
+               --byReadGroup #\
+               #-J \
+               # -G "$GENOME_FA"
 
