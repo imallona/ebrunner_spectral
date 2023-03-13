@@ -86,3 +86,107 @@ $FEATURECOUNTS -a tail.gtf \
 
 ## how would it look like for a real set of BAM files?
 echo 'todo append to the new scripts'
+
+valid_rgs=~/star_solo_cell_lines/RoCK_ROI/WTA_new/RoCK_ROI_WTA_new/Solo.out/Gene/filtered/barcodes.tsv
+
+# adding RGs
+
+TAB="$(printf '\t')"
+
+# while read -r barcode
+# do
+    
+#     echo "@RG${TAB}ID=tiny_wta_${barcode}"
+#     echo "@RG${TAB}ID=tiny_tso_${barcode}"
+
+# done < "$valid_rgs" > header_barcodes
+
+## mind that the uniq does umi dedup using the new RG (with CB and MO) and the UB
+samtools merge -@ $NTHREADS - -r tiny_tso.bam tiny_wta.bam  > merged_temp.bam
+
+samtools view -H merged_temp.bam > curr_header.txt
+
+samtools view merged_temp.bam | cut -f 27,29 | grep -vP "CB:Z:-" | awk '{FS=OFS="\t"; print "@RG","ID="substr($2,6)"_"substr($1,6)}' > \
+                                                                       header_barcodes
+
+samtools view merged_temp.bam | \
+    grep -vP "CB:Z:-\t" | \
+    awk '{OFS=FS="\t"; print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,"RG"substr($29,3 )"_"substr($27, 6)}' |  uniq -f 27 | \
+    cat curr_header.txt header_barcodes - | \
+    samtools view -Sb -@ $NTHREADS | \
+    samtools sort -@ $NTHREADS  > merged_untested_header.bam
+
+
+echo "beware the gtf is exon-only, does not have genes nor tx"
+$FEATURECOUNTS -a /home/gmoro/indices/combined_correct.gtf \
+               -o test_flagged \
+               merged_untested_header.bam \
+               -F GTF \
+               -t exon \
+               -g gene_id \
+               -f \
+               -O \
+               -M  \
+               -T "$NTHREADS" \
+               --byReadGroup
+
+
+
+## RGs as reported by the WTA - full run, rock+roi
+
+
+samtools index tso.bam
+samtools index wta.bam
+
+samtools view -h tso.bam alien_egfp_WPRE alien_tdtomato_WPRE | samtools view -Sb > small_tso.bam
+samtools view -h wta.bam alien_egfp_WPRE alien_tdtomato_WPRE | samtools view -Sb > small_wta.bam
+
+
+
+samtools merge -@ $NTHREADS - -r small_tso.bam small_wta.bam  > merged_temp.bam
+
+valid_rgs=~/star_solo_cell_lines/RoCK_ROI/WTA_new/RoCK_ROI_WTA_new/Solo.out/Gene/filtered/barcodes.tsv
+TAB="$(printf '\t')"
+
+while read -r barcode
+do
+    
+    echo "@RG${TAB}ID:small_tso_${barcode}"
+    echo "@RG${TAB}ID:small_wta_${barcode}"
+
+done < "$valid_rgs" > header_barcodes
+
+sed 's/@RG\tID://g' header_barcodes > wta_tso_filteredin_barcodes
+
+
+samtools view -H merged_temp.bam > curr_header.txt
+
+# samtools view merged_temp.bam | cut -f 27,29 | grep -vP "CB:Z:-" | awk '{FS=OFS="\t"; print "@RG","ID="substr($2,6)"_"substr($1,6)}' > \
+#                                                                        header_barcodes
+
+samtools view merged_temp.bam | \
+    grep -vP "CB:Z:-\t" | \
+    awk '{OFS=FS="\t"; print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,"RG"substr($29,3 )"_"substr($27, 6)}' |  uniq -f 27 | \
+    cat curr_header.txt header_barcodes - | \
+    samtools view -Sb -@ $NTHREADS | \
+    samtools sort -@ $NTHREADS  > merged_untested_header.bam
+
+samtools index -@ $NTHREADS merged_untested_header.bam
+samtools view -h merged_untested_header.bam -R wta_tso_filteredin_barcodes | \
+    samtools view -Sb >  merge_untested_filtered.bam
+
+echo "beware the gtf is exon-only, does not have genes nor tx"
+grep alien /home/gmoro/indices/combined_correct.gtf > alien.gtf
+
+$FEATURECOUNTS -a alien.gtf \
+               -o alien_only \
+               merged_untested_header.bam \
+               -F GTF \
+               -t exon \
+               -g gene_id \
+               -f \
+               -O \
+               -M  \
+               -T "$NTHREADS" \
+               --byReadGroup
+
