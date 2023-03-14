@@ -69,6 +69,9 @@ samtools view merged_temp.bam | \
     samtools view -Sb -@ $NTHREADS | \
     samtools sort -@ $NTHREADS  > merged_untested_header.bam
 
+
+rm merged_temp.bam
+
 ## index the reheaded bam
 samtools index -@ $NTHREADS merged_untested_header.bam
 
@@ -82,7 +85,7 @@ grep alien /home/gmoro/indices/combined_correct.gtf > alien.gtf
 ## count multimapping, multioverlap included
 $FEATURECOUNTS -a alien.gtf \
                -o alien_only \
-               merged_untested_header.bam \
+               merged_untested_header_filtered.bam \
                -F GTF \
                -t exon \
                -g gene_id \
@@ -93,3 +96,5 @@ $FEATURECOUNTS -a alien.gtf \
                --byReadGroup #\
                #-J \
                # -G "$GENOME_FA"
+
+rm merged_untested_header.bam curr_header.txt wta_tso_filteredin_barcodes
