@@ -26,7 +26,11 @@ nice -n 19 STAR --runThreadN 5 \
      --soloCellFilter None \
      --soloCellReadStats Standard \
      --sjdbOverhang 61 \
-     --outSAMattributes CB UB gx gn sS CR CY UR UY\
+     --outSAMattributes NH HI AS nM NM MD jM jI MC ch CB UB gx gn sS CR CY UR UY\
      --outSAMtype BAM SortedByCoordinate \
      --quantMode GeneCounts \
      --sjdbGTFfile /home/gmoro/indices/combined_correct.gtf
+
+
+
+               
