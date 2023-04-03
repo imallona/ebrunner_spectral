@@ -327,6 +327,13 @@ d[[modality_filt]][[experiment]]@meta.data <- meta
 ```
 
 
+```{r}
+lapply(d, function(x) lapply(x, function (x) head(x@meta.data)))
+```
+
+```{r}
+saveRDS(object = d, file = 'all_seurats.rds')
+```
 
 # Analysis requirements
 
