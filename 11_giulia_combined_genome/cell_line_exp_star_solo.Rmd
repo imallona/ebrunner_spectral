@@ -1,0 +1,532 @@
+---
+title: "starsolo rock and roi, ground truth experiment"
+author: "Giulia Moro, Izaskun Mallona"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+    code_download: true
+    number_sections: true
+    df_print: kable
+    theme: lumen
+params:
+  seed: 665
+---
+
+
+### loading packages 
+
+```{r warning = FALSE, message = FALSE}
+## .libPaths('/home/imallona/R/x86_64-pc-linux-gnu-library/4.1')
+library(Seurat)
+## library(dplyr)
+## library(patchwork)
+library(ggplot2)
+## library(scDblFinder)
+## library(BiocManager)
+## library(tidyr)
+## library(gridExtra)
+## library(stringr)
+## library(reshape2)
+library(Matrix)
+## library(readr)
+library(rmarkdown)
+library(knitr)
+```
+
+
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+knitr::opts_chunk$set(autodep = TRUE, cache = TRUE,
+                      fig.path = "11_liu_patients/",
+                      fig.width = 5, fig.height = 5,
+                      dev = c("png", "svg"),
+                      dev.args = list(png = list(type = "cairo")),
+                      warning = FALSE, message = FALSE)
+```
+
+### RoCK ROI TSO
+
+```{r}
+counts_RR_TSO <- readMM("/home/gmoro/RStudio/Cell_line_exp/matrix_RR_TSO_new.mtx")
+
+genes_RR_TSO <- read.table("/home/gmoro/RStudio/Cell_line_exp/features_RR_TSO_new.tsv", header = FALSE)
+
+cell_ids_RR_TSO <- read.table("/home/gmoro/RStudio/Cell_line_exp/barcodes_RR_TSO_new.tsv", header = FALSE)
+
+foo <- ReadMtx(
+  mtx = "/home/gmoro/RStudio/Cell_line_exp/matrix_RR_TSO_new.mtx",
+  cells = "/home/gmoro/RStudio/Cell_line_exp/barcodes_RR_TSO_new.tsv",
+  features = "/home/gmoro/RStudio/Cell_line_exp/features_RR_TSO_new.tsv",
+  cell.column = 1,
+  feature.column = 1)
+  
+```
+
+```{r}
+so <- list()
+```
+
+```{r}
+stopifnot(all(rownames(foo) ==  genes_RR_TSO$V1))
+
+rownames(foo) <- sprintf('%s__%s', genes_RR_TSO$V2, genes_RR_TSO$V1)
+
+so$tso <- CreateSeuratObject(counts = foo, min.cells = 0, min.features = 0)
+
+## grep('^mt', rownames(so$tso), value = TRUE)
+so$tso[["percent.mt"]] <- PercentageFeatureSet(so$tso, pattern = "^mt")
+so$tso[["percent.mt"]] [is.na(so$tso[["percent.mt"]] )] <- 0
+so$tso$sample <- c("RoCK_ROI_TSO")
+
+rm(foo, counts_RR_TSO, genes_RR_TSO, cell_ids_RR_TSO)
+```
+
+
+```{r}
+## str(so$tso@meta.data)
+
+VlnPlot(so$tso, features = c("nFeature_RNA", "nCount_RNA", 'percent.mt'), group.by = sample)
+```
+
+### RoCK ROI WTA
+
+```{r}
+foo <- ReadMtx(
+  mtx = "/home/gmoro/RStudio/Cell_line_exp/matrix_RR_WTA_new.mtx",
+  cells = "/home/gmoro/RStudio/Cell_line_exp/barcodes_RR_WTA_new.tsv",
+  features = "/home/gmoro/RStudio/Cell_line_exp/features_RR_WTA_new.tsv",
+  cell.column = 1,
+  feature.column = 1)
+
+
+genes_RR_WTA <- read.table("/home/gmoro/RStudio/Cell_line_exp/features_RR_WTA_new.tsv", header = FALSE)
+
+cell_ids_RR_WTA <- read.table("/home/gmoro/RStudio/Cell_line_exp/barcodes_RR_WTA_new.tsv", header = FALSE)
+
+stopifnot(all(rownames(foo) ==  genes_RR_WTA$V1))
+
+rownames(foo) <- sprintf('%s__%s', genes_RR_WTA$V2, genes_RR_WTA$V1)
+
+so$wta <- CreateSeuratObject(counts = foo, min.cells = 1, min.features = 1)
+
+so$wta[["percent.mt"]] <- PercentageFeatureSet(so$wta, pattern = "^mt")
+so$wta[["percent.mt"]] [is.na(so$wta[["percent.mt"]] )] <- 0
+so$wta$sample <- c("RoCK_ROI_WTA")
+```
+
+```{r}
+rm(foo,  genes_RR_WTA, cell_ids_RR_WTA)
+```
+
+TSO CBs: only those overlapping WTA's.
+
+```{r}
+wta_cells <- colnames(so$wta)
+so$tso <- subset(so$tso, cells = wta_cells)
+
+```
+
+```{r}
+for (item in names(so)) {
+    so[[item]]@meta.data$orig.ident <- so[[item]]@meta.data$sample
+
+    print(VlnPlot(so[[item]],
+                  features = c("nFeature_RNA", "nCount_RNA", 'percent.mt'),
+                  group.by = 'sample')) #+ ggtitle(item))
+}
+```
+
+
+```{r, cache = FALSE}
+knitr::knit_exit()
+```
+
+### other way to do it: 
+
+#expression_matrix <- ReadMtx(
+#mtx = "/home/gmoro/RStudio/Cell_line_exp/matrix_RR_TSO.mtx", features = "/home/gmoro/RStudio/Cell_line_exp/features_RR_TSO.tsv",
+#cells = "/home/gmoro/RStudio/Cell_line_exp/barcodes_RR_TSO.tsv"
+#)
+
+length(colnames(counts_RR_TSO)) # 912673
+
+S_RR_TSO<- CreateSeuratObject(counts = counts_RR_TSO, min.cells = 3, min.features = 200)
+S_RR_TSO[["percent.mt"]] <- PercentageFeatureSet(S_RR_TSO, pattern = "^mt")
+
+S_RR_TSO$sample <- c("RoCK_ROI_TSO")
+S_RR_TSO <- SetIdent(S_RR_TSO, value = "status")
+
+VlnPlot(S_RR_TSO, features = c("nFeature_RNA", "nCount_RNA", "percent.mt")) 
+
+### how many cells have ROIseq peaks
+
+which(rownames(counts_RR_TSO)=="ROI_egfp") #4
+
+ROI_barcodes<-colnames(counts_RR_TSO[,which(counts_RR_TSO[4,]>0)])
+length(ROI_barcodes)
+sum(counts_RR_TSO[4,])
+
+# based on Seurat
+
+subsetted_counts_RR_TSO <- S_RR_TSO@assays$RNA
+
+which(rownames(subsetted_counts_RR_TSO)=="ROI_egfp") #4
+length(colnames(subsetted_counts_RR_TSO))
+ROI_barcodes<-colnames(subsetted_counts_RR_TSO[,which(subsetted_counts_RR_TSO[4,]>0)])
+length(ROI_barcodes)
+sum(subsetted_counts_RR_TSO[4,])
+
+
+### how many cells have RoCKseq peaks
+
+which(rownames(counts_RR_TSO)=="RoCK_egfp") #5
+
+RoCK_barcodes<-colnames(counts_RR_TSO[,which(counts_RR_TSO[5,]>0)])
+length(RoCK_barcodes)
+sum(counts_RR_TSO[5,])
+
+# based on Seurat
+
+subsetted_counts_RR_TSO <- S_RR_TSO@assays$RNA
+
+which(rownames(subsetted_counts_RR_TSO)=="RoCK-egfp") #5
+length(colnames(subsetted_counts_RR_TSO))
+RoCK_barcodes<-colnames(subsetted_counts_RR_TSO[,which(subsetted_counts_RR_TSO[5,]>0)])
+length(RoCK_barcodes)
+sum(subsetted_counts_RR_TSO[4,])
+
+# intersect RoCK and ROI reads Seurat
+
+length(intersect(ROI_barcodes,RoCK_barcodes))
+
+
+
+
+
+
+
+
+
+
+### RoCK ROI WTA
+
+counts_RR_WTA <- readMM("/home/gmoro/RStudio/Cell_line_exp/matrix_RR_WTA.mtx")
+
+genes_RR_WTA <- read_tsv("/home/gmoro/RStudio/Cell_line_exp/features_RR_WTA.tsv", col_names = FALSE)
+gene_ids_RR_WTA <- genes_RR_WTA$X2 # ensembl would be X1
+
+cell_ids_RR_WTA <- read_tsv("/home/gmoro/RStudio/Cell_line_exp/barcodes_RR_WTA.tsv", col_names = FALSE)$X1
+
+rownames(counts_RR_WTA) <- gene_ids_RR_WTA
+colnames(counts_RR_WTA) <- cell_ids_RR_WTA
+
+length(colnames(counts_RR_WTA)) # 9775
+
+S_RR_WTA<- CreateSeuratObject(counts = counts_RR_WTA, min.cells = 3, min.features = 200)
+S_RR_WTA[["percent.mt"]] <- PercentageFeatureSet(S_RR_WTA, pattern = "^mt")
+
+S_RR_WTA$sample <- c("RoCK_ROI_WTA")
+S_RR_WTA <- SetIdent(S_RR_WTA, value = "status")
+
+VlnPlot(S_RR_WTA, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3) 
+
+rowSums(head(counts_RR_TSO,50))
+
+
+
+### unmod WTA
+
+counts_unmod_WTA <- readMM("/home/gmoro/RStudio/Cell_line_exp/matrix_unmod_WTA.mtx")
+
+genes_unmod_WTA <- read_tsv("/home/gmoro/RStudio/Cell_line_exp/features_unmod_WTA.tsv", col_names = FALSE)
+gene_ids_unmod_WTA <- genes_unmod_WTA$X2 # ensembl would be X1
+
+cell_ids_unmod_WTA <- read_tsv("/home/gmoro/RStudio/Cell_line_exp/barcodes_unmod_WTA.tsv", col_names = FALSE)$X1
+
+rownames(counts_unmod_WTA) <- gene_ids_unmod_WTA
+colnames(counts_unmod_WTA) <- cell_ids_unmod_WTA
+
+length(colnames(counts_unmod_WTA)) # 9768
+
+S_unmod_WTA<- CreateSeuratObject(counts = counts_unmod_WTA, min.cells = 3, min.features = 200)
+S_unmod_WTA[["percent.mt"]] <- PercentageFeatureSet(S_unmod_WTA, pattern = "^mt")
+
+S_unmod_WTA$sample <- c("unmod_WTA")
+S_unmod_WTA <- SetIdent(S_unmod_WTA, value = "status")
+
+VlnPlot(S_unmod_WTA, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3) 
+
+rowSums(head(counts_RR_TSO,50))
+
+
+### unmod N1_WTA
+
+counts_unmod_N1_WTA <- readMM("/home/gmoro/RStudio/Cell_line_exp/matrix_unmod_N1_WTA.mtx")
+
+genes_unmod_N1_WTA <- read_tsv("/home/gmoro/RStudio/Cell_line_exp/features_unmod_N1_WTA.tsv", col_names = FALSE)
+gene_ids_unmod_N1_WTA <- genes_unmod_N1_WTA$X2 # ensembl would be X1
+
+cell_ids_unmod_N1_WTA <- read_tsv("/home/gmoro/RStudio/Cell_line_exp/barcodes_unmod_N1_WTA.tsv", col_names = FALSE)$X1
+
+rownames(counts_unmod_N1_WTA) <- gene_ids_unmod_N1_WTA
+colnames(counts_unmod_N1_WTA) <- cell_ids_unmod_N1_WTA
+
+length(colnames(counts_unmod_N1_WTA)) # 9768
+
+S_unmod_N1_WTA<- CreateSeuratObject(counts = counts_unmod_N1_WTA, min.cells = 3, min.features = 200)
+S_unmod_N1_WTA[["percent.mt"]] <- PercentageFeatureSet(S_unmod_N1_WTA, pattern = "^mt")
+
+S_unmod_N1_WTA$sample <- c("unmod_WTA")
+S_unmod_N1_WTA <- SetIdent(S_unmod_N1_WTA, value = "status")
+
+VlnPlot(S_unmod_N1_WTA, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3) 
+
+rowSums(head(counts_RR_TSO,50))
+
+
+### RoCK WTA
+
+counts_R_WTA <- readMM("/home/gmoro/RStudio/Cell_line_exp/matrix_RoCK_WTA.mtx")
+
+genes_R_WTA <- read_tsv("/home/gmoro/RStudio/Cell_line_exp/features_RoCK_WTA.tsv", col_names = FALSE)
+gene_ids_R_WTA <- genes_R_WTA$X2 # ensembl would be X1
+
+cell_ids_R_WTA <- read_tsv("/home/gmoro/RStudio/Cell_line_exp/barcodes_RoCK_WTA.tsv", col_names = FALSE)$X1
+
+rownames(counts_R_WTA) <- gene_ids_R_WTA
+colnames(counts_R_WTA) <- cell_ids_R_WTA
+
+length(colnames(counts_R_WTA)) # 9210
+
+S_R_WTA<- CreateSeuratObject(counts = counts_R_WTA, min.cells = 3, min.features = 200)
+S_R_WTA[["percent.mt"]] <- PercentageFeatureSet(S_R_WTA, pattern = "^mt")
+
+S_R_WTA$sample <- c("R_WTA")
+S_R_WTA <- SetIdent(S_R_WTA, value = "status")
+
+VlnPlot(S_R_WTA, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3) 
+
+rowSums(head(counts_RR_TSO,50))
+
+
+
+
+
+### merging count tables WTA and TSO
+
+counts_RR_WTA
+counts_RR_TSO
+
+length(colnames(counts_RR_WTA))
+subsetted_WTA_counts_RR_TSO <- counts_RR_TSO[,colnames(counts_RR_WTA)]
+
+rownames(subsetted_WTA_counts_RR_TSO)[1]
+sum(subsetted_WTA_counts_RR_TSO[1,])
+sum(counts_RR_WTA[1,])
+
+rownames(subsetted_WTA_counts_RR_TSO)[2]
+sum(subsetted_WTA_counts_RR_TSO[2,])
+sum(counts_RR_WTA[2,])
+
+rownames(subsetted_WTA_counts_RR_TSO)[3]
+sum(subsetted_WTA_counts_RR_TSO[3,])
+sum(counts_RR_WTA[3,])
+
+rownames(subsetted_WTA_counts_RR_TSO)[4]
+sum(subsetted_WTA_counts_RR_TSO[4,])
+sum(counts_RR_WTA[4,])
+
+rownames(subsetted_WTA_counts_RR_TSO)[5]
+sum(subsetted_WTA_counts_RR_TSO[5,])
+sum(counts_RR_WTA[5,])
+
+rownames(subsetted_WTA_counts_RR_TSO)[6]
+sum(subsetted_WTA_counts_RR_TSO[6,])
+sum(counts_RR_WTA[6,])
+
+
+### SB number of eGFP cells
+
+# mouse unmod
+
+unmod_mouse <- read.csv("~/RStudio/Cell_line_exp/o307161_1-Unmodified_mouse_eGFP_RSEC_MolsPerCell.csv", row.names=1, comment.char="#")
+
+colnames(unmod_mouse)
+which(colnames(unmod_mouse)=="egfp") #26738
+
+t_unmod_mouse <-t(unmod_mouse)
+length(colnames(t_unmod_mouse)) #9349
+
+
+S_t_unmod_mouse <- CreateSeuratObject(counts = t_unmod_mouse, min.cells = 3, min.features = 200)
+S_t_unmod_mouse[["percent.mt"]] <- PercentageFeatureSet(S_t_unmod_mouse, pattern = "^mt")
+VlnPlot(S_t_unmod_mouse, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3,cols="violet") 
+
+egfp_barcodes<-colnames(t_unmod_mouse[,which(t_unmod_mouse[26738,]>0)])
+length(egfp_barcodes)
+
+which(rownames(t_unmod_mouse)=="egfp") 
+sum(t_unmod_mouse[26738,])
+
+
+# mouse unmod N1
+
+unmod_N1_mouse <- read.csv("~/RStudio/Cell_line_exp/o307161_2-Unmodified_N1_mouse_RSEC_MolsPerCell.csv", row.names=1, comment.char="#")
+
+colnames(unmod_N1_mouse)
+which(colnames(unmod_N1_mouse)=="egfp") #27961
+
+t_unmod_N1_mouse <-t(unmod_N1_mouse)
+length(colnames(t_unmod_N1_mouse)) #8980
+
+S_t_unmod_N1_mouse <- CreateSeuratObject(counts = t_unmod_N1_mouse, min.cells = 3, min.features = 200)
+S_t_unmod_N1_mouse[["percent.mt"]] <- PercentageFeatureSet(S_t_unmod_N1_mouse, pattern = "^mt")
+VlnPlot(S_t_unmod_N1_mouse, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3,cols="violet") 
+
+egfp_barcodes<-colnames(t_unmod_N1_mouse[,which(t_unmod_N1_mouse[27961,]>0)])
+length(egfp_barcodes)
+
+which(rownames(t_unmod_N1_mouse)=="egfp") 
+sum(t_unmod_N1_mouse[27961,])
+
+
+
+
+
+# mouse RoCK
+
+RoCK_mouse <- read.csv("~/RStudio/Cell_line_exp/o307161_3-RoCK_mouse_RSEC_MolsPerCell.csv", row.names=1, comment.char="#")
+
+colnames(RoCK_mouse)
+which(colnames(RoCK_mouse)=="egfp") #27281
+
+t_RoCK_mouse <-t(RoCK_mouse)
+length(colnames(t_RoCK_mouse)) # 8441
+
+S_t_RoCK <- CreateSeuratObject(counts = t_RoCK_mouse, min.cells = 3, min.features = 200)
+S_t_RoCK[["percent.mt"]] <- PercentageFeatureSet(S_t_RoCK, pattern = "^mt")
+VlnPlot(S_t_RoCK, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3,cols="violet") 
+
+egfp_barcodes<-colnames(t_RoCK_mouse[,which(t_RoCK_mouse[27281,]>0)])
+length(egfp_barcodes)
+
+which(rownames(t_RoCK_mouse)=="egfp") 
+sum(t_RoCK_mouse[27281,])
+
+# RoCK_ROI mouse
+
+RR_mouse <- read.csv("~/RStudio/Cell_line_exp/o307161_4-RoCK_ROI_mouse_RSEC_MolsPerCell.csv", row.names=1, comment.char="#")
+
+colnames(RR_mouse)
+
+which(colnames(RR_mouse)=="egfp") #27473
+
+t_RR_mouse <-t(RR_mouse)
+length(colnames(t_RR_mouse)) # 8441
+
+S_t_RR <- CreateSeuratObject(counts = t_RR_mouse, min.cells = 3, min.features = 200)
+S_t_RR[["percent.mt"]] <- PercentageFeatureSet(S_t_RR, pattern = "^mt")
+VlnPlot(S_t_RR, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3,cols="violet") 
+
+egfp_barcodes<-colnames(t_RR_mouse[,which(t_RR_mouse[27473,]>0)])
+length(egfp_barcodes)
+
+which(rownames(t_RR_mouse)=="egfp") 
+sum(t_RR_mouse[27473,])
+
+
+
+
+
+
+
+### SB number of tdtom cells
+
+# human unmod
+
+unmod_human <- read.csv("~/RStudio/Cell_line_exp/o307161_1-Unmodified_human_RSEC_MolsPerCell.csv", row.names=1, comment.char="#")
+
+colnames(unmod_human)
+which(colnames(unmod_human)=="tdtomato") #29864
+
+t_unmod_human <-t(unmod_human)
+length(colnames(t_unmod_human)) #9463
+
+
+S_t_unmod_human <- CreateSeuratObject(counts = t_unmod_human, min.cells = 3, min.features = 200)
+S_t_unmod_human[["percent.mt"]] <- PercentageFeatureSet(S_t_unmod_human, pattern = "^MT")
+VlnPlot(S_t_unmod_human, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3,cols="violet") 
+
+egfp_barcodes<-colnames(t_unmod_human[,which(t_unmod_human[29864,]>0)])
+length(egfp_barcodes)
+
+which(rownames(t_unmod_human)=="tdtomato") 
+sum(t_unmod_human[29864,])
+
+
+# human unmod N1
+
+unmod_N1_human <- read.csv("~/RStudio/Cell_line_exp/o307161_2-Unmodified_N1_human_RSEC_MolsPerCell.csv", row.names=1, comment.char="#")
+
+colnames(unmod_N1_human)
+which(colnames(unmod_N1_human)=="tdtomato") #30987
+
+t_unmod_N1_human <-t(unmod_N1_human)
+length(colnames(t_unmod_N1_human)) #9801
+
+S_t_unmod_N1_human <- CreateSeuratObject(counts = t_unmod_N1_human, min.cells = 3, min.features = 200)
+S_t_unmod_N1_human[["percent.mt"]] <- PercentageFeatureSet(S_t_unmod_N1_human, pattern = "^MT")
+VlnPlot(S_t_unmod_N1_human, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3,cols="violet") 
+
+egfp_barcodes<-colnames(t_unmod_N1_human[,which(t_unmod_N1_human[30987,]>0)])
+length(egfp_barcodes)
+
+which(rownames(t_unmod_N1_human)=="tdtomato") 
+sum(t_unmod_N1_human[30987,])
+
+
+
+
+
+# mouse RoCK
+
+RoCK_human <- read.csv("~/RStudio/Cell_line_exp/o307161_3-RoCK_RSEC_human_MolsPerCell.csv", row.names=1, comment.char="#")
+
+colnames(RoCK_human)
+which(colnames(RoCK_human)=="tdtomato") #30470
+
+t_RoCK_human <-t(RoCK_human)
+length(colnames(t_RoCK_human)) # 8441
+
+S_t_RoCK <- CreateSeuratObject(counts = t_RoCK_human, min.cells = 3, min.features = 200)
+S_t_RoCK[["percent.mt"]] <- PercentageFeatureSet(S_t_RoCK, pattern = "^MT")
+VlnPlot(S_t_RoCK, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3,cols="violet") 
+
+egfp_barcodes<-colnames(t_RoCK_human[,which(t_RoCK_human[30470,]>0)])
+length(egfp_barcodes)
+
+which(rownames(t_RoCK_human)=="tdtomato") 
+sum(t_RoCK_human[30470,])
+
+# RoCK_ROI mouse
+
+RR_human <- read.csv("~/RStudio/Cell_line_exp/o307161_4-RoCK_ROI_human_RSEC_MolsPerCell.csv", row.names=1, comment.char="#")
+
+colnames(RR_human)
+
+which(colnames(RR_human)=="tdtomato") #30425
+
+t_RR_human <-t(RR_human)
+length(colnames(t_RR_human)) # 10305
+
+S_t_RR <- CreateSeuratObject(counts = t_RR_human, min.cells = 3, min.features = 200)
+S_t_RR[["percent.mt"]] <- PercentageFeatureSet(S_t_RR, pattern = "^MT")
+VlnPlot(S_t_RR, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3,cols="violet") 
+
+egfp_barcodes<-colnames(t_RR_human[,which(t_RR_human[27473,]>0)])
+length(egfp_barcodes)
+
+which(rownames(t_RR_mouse)=="egfp") 
+sum(t_RR_mouse[27473,])
