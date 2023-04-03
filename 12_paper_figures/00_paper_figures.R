@@ -1,3 +1,68 @@
+---
+title: "QC STAR solo outputs"
+author: "Giulia Moro, Izaskun Mallona"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+    code_download: true
+    number_sections: true
+    df_print: kable
+    theme: lumen
+params:
+  seed: 665
+---
+
+# Aim
+
+```
+Evaluate a human vs mouse, mod vs unmod experiment (Spectral, first run)
+```
+
+To be run in R 4.1.x with BioC 3.13
+
+# Strategy
+
+```
+- Align to a mouse + human + alien combined genome
+- Use genesymbols shared by mouse and human to generate the count matrix (~20k of them)
+- Run multiple QCs, and standard Seurat (merged and integrated by `name`, i.e. mod vs unmod)
+- Diff expression test based on unsupervised clusters
+```
+
+# Findings
+
+```
+- Many cells mapping to both the human and mouse genomes and unusual libsize/num genes detected
+- egfp and tdtomato levels similar across mod and unmod
+- tdtomato data are much more sparse than egfp
+- Many cells with low libsize
+- Doublets more abundant in mod than in unmod
+- Unsupervised clustering detects both mouse vs human and mod vs unmod
+- Much higher mt content in mod human than in others, particularly as coompared to unmod human (?)
+- Cells without any detected tdtomato/egfp expression cluster (according to 'normal' genes) close to those expressing them
+- Almost perfect unsupervised clustering : annotation (mod/unmod or human/mouse) segregation
+- (to be updated)
+```
+
+# Overview
+
+```{r}
+ID <- '04_descriptive_spectral_batch_1'
+BASE <- file.path('/home', 'imallona')
+WD <- file.path(BASE, 'giulia', ID)
+DATA <- file.path(BASE, 'giulia', 'data')
+DOWNSAMPLE <- FALSE
+
+## setwd(WD)
+
+NTHREADS <- 10
+```
+
+
+
 rm(list=ls())
 library(Seurat)
 library(dplyr)
