@@ -1,0 +1,348 @@
+---
+title: "QC STAR solo outputs"
+author: "Giulia Moro, Izaskun Mallona"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+    code_download: true
+    number_sections: true
+    df_print: kable
+    theme: lumen
+params:
+  seed: 665
+---
+
+# Aim
+
+```
+lorem ipsum
+```
+
+To be run in R 4.1.x with BioC 3.13
+
+
+```{r}
+.libPaths('/home/imallona/R/x86_64-pc-linux-gnu-library/4.1/')
+```
+
+```{r}
+
+library(Seurat)
+## library(dplyr)
+## library(patchwork)
+library(ggplot2)
+library(scDblFinder)
+library(Matrix)
+
+```
+
+# Strategy
+
+```
+
+```
+
+# Findings
+
+```
+
+```
+
+# Overview
+
+```{r}
+ID <- '00_paper_figures'
+
+DOWNSAMPLE <- FALSE
+
+## setwd(WD)
+
+NTHREADS <- 10
+```
+
+```{r}
+library(knitr)
+
+```
+
+```{r}
+opts_chunk$set(fig.width = 5,
+               fig.height = 5,
+               cache = TRUE,
+               include = TRUE,
+               dev = "png",
+               cache.lazy = FALSE,
+               warning = TRUE,
+               message = TRUE)
+```
+
+Symlink data locally
+
+```{bash, eval = FALSE}
+
+sudo usermod -aG robinsonlab gmoro
+
+sudo chown -R gmoro:robinsonlab /home/gmoro/star_solo_cell_lines/featurecounts/
+sudo chmod -R ug+rwX /home/gmoro/star_solo_cell_lines/featurecounts/
+
+
+for item in $(find /home/gmoro/star_solo_cell_lines/featurecounts/ -name "barcodes.tsv")
+do
+    echo $item
+    curr_dir=$(dirname $item)
+    echo $curr_dir
+done    
+
+## rather symlink manually
+
+mkdir -p data/tso_unfilt data/wta_unfilt data/wta_filt data/alien
+
+cd data/tso_unfilt
+
+ln -s /home/gmoro/star_solo_cell_lines/featurecounts/RoCK/RoCKTSO/RoCKTSO/Solo.out/Gene/raw/ rock
+ln -s /home/gmoro/star_solo_cell_lines/featurecounts/RoCK_ROI/RoCK_ROITSO/RoCK_ROITSO/Solo.out/Gene/raw/ rockroi
+ln -s /home/gmoro/star_solo_cell_lines/featurecounts/unmod/unmodTSO/unmodTSO/Solo.out/Gene/raw/ unmod
+ln -s /home/gmoro/star_solo_cell_lines/featurecounts/unmod_N1/unmod_N1TSO/unmod_N1TSO/Solo.out/Gene/raw/ n1
+
+
+cd ../wta_unfilt
+
+ln -s /home/gmoro/star_solo_cell_lines/featurecounts/RoCK/RoCKWTA/RoCKWTA/Solo.out/Gene/raw/ rock
+ln -s /home/gmoro/star_solo_cell_lines/featurecounts/RoCK_ROI/RoCK_ROIWTA/RoCK_ROIWTA/Solo.out/Gene/raw/ rockroi
+ln -s /home/gmoro/star_solo_cell_lines/featurecounts/unmod/unmodWTA/unmodWTA/Solo.out/Gene/raw/ unmod
+ln -s /home/gmoro/star_solo_cell_lines/featurecounts/unmod_N1/unmod_N1WTA/unmod_N1WTA/Solo.out/Gene/raw/ n1
+
+cd ../wta_filt
+
+ln -s /home/gmoro/star_solo_cell_lines/featurecounts/RoCK/RoCKWTA/RoCKWTA/Solo.out/Gene/filtered/ rock
+ln -s /home/gmoro/star_solo_cell_lines/featurecounts/RoCK_ROI/RoCK_ROIWTA/RoCK_ROIWTA/Solo.out/Gene/filtered/ rockroi
+ln -s /home/gmoro/star_solo_cell_lines/featurecounts/unmod/unmodWTA/unmodWTA/Solo.out/Gene/filtered/ unmod
+ln -s /home/gmoro/star_solo_cell_lines/featurecounts/unmod_N1/unmod_N1WTA/unmod_N1WTA/Solo.out/Gene/filtered/ n1
+
+
+cd ../alien
+
+## find /home/gmoro/star_solo_cell_lines/featurecounts/ -name "alien_only"
+
+ln -s /home/gmoro/star_solo_cell_lines/featurecounts/RoCK/RoCKfeaturecounts/alien_only rock
+ln -s /home/gmoro/star_solo_cell_lines/featurecounts/RoCK_ROI/RoCK_ROIfeaturecounts/alien_only rockroi
+ln -s /home/gmoro/star_solo_cell_lines/featurecounts/unmod/unmodfeaturecounts/alien_only unmod
+ln -s /home/gmoro/star_solo_cell_lines/featurecounts/unmod_N1/unmod_N1featurecounts/alien_only n1
+
+```
+
+`
+
+# Data load
+
+
+```{r}
+exps <- c('n1', 'rock', 'rockroi', 'unmod')
+```
+
+```{r}
+d <- list()
+for (modality in c('tso_unfilt', 'wta_filt', 'tso_unfilt')) {
+    d[[modality]] <- list()
+    print(modality)
+    for (experiment in exps) {
+
+
+        counts <- readMM(file.path('data', modality, experiment, 'matrix.mtx'))
+
+        genes <- read.table(file.path('data', modality, experiment, 'features.tsv'), header = FALSE)
+        cell_ids <- read.table(file.path('data', modality, experiment, 'barcodes.tsv'), header = FALSE)
+
+        foo <- ReadMtx(
+            mtx = file.path('data', modality, experiment, 'matrix.mtx'),
+            cells = file.path('data', modality, experiment, 'barcodes.tsv'),
+            features = file.path('data', modality, experiment, 'features.tsv'),
+            cell.column = 1,
+            feature.column = 1)
+        
+        stopifnot(all(rownames(foo) ==  genes$V1))
+
+        rownames(foo) <- sprintf('%s__%s', genes$V2, genes$V1)
+
+        d[[modality]][[experiment]] <- CreateSeuratObject(counts = foo, min.cells = 0, min.features = 0)
+        
+        ## grep ('^mt-', rownames(d[[modality]][[experiment]]), ignore.case = TRUE, value = TRUE)
+        
+        d[[modality]][[experiment]][["pct.mt.mouse"]] <- PercentageFeatureSet(d[[modality]][[experiment]],
+                                                                            pattern = "^mt-")
+
+        d[[modality]][[experiment]][["pct.mt.human"]] <- PercentageFeatureSet(d[[modality]][[experiment]],
+                                                                                  pattern = "^MT-")
+
+        for (item in c('pct.mt.mouse', 'pct.mt.human'))
+            d[[modality]][[experiment]][[item]] [is.na(d[[modality]][[experiment]][[item]] )] <- 0
+
+        ## head(d[[modality]][[experiment]]@meta.data)
+
+        ## table(d[[modality]][[experiment]]$pct.mt.mouse > 0)
+        ## table(d[[modality]][[experiment]]$pct.mt.human > 0)
+        ## table(d[[modality]][[experiment]]$pct.mt.human > 0 & d[[modality]][[experiment]]$pct.mt.mouse > 0)
+        ## table(d[[modality]][[experiment]]$pct.mt.human > 0 |  d[[modality]][[experiment]]$pct.mt.mouse > 0)
+             
+        d[[modality]][[experiment]]$sample <- c(sprintf('%s_%s', modality, experiment))
+
+        rm(foo, counts, genes, cell_ids)
+    }
+}
+
+```
+
+
+Plus the alien
+
+```{r}
+
+alien <- list(wta_filt = list(), tso_filt = list())
+
+for (experiment in exps) {
+    print(experiment)
+    curr <- read.table(file.path('data', 'alien', experiment), header=TRUE)
+
+    duplicated(curr$Geneid)
+    curr$Geneid[7] <- "capture_sequence_double_egfp_1"
+
+    rownames(curr) <- curr$Geneid
+    curr <- curr[1:20, -c(1:6)] 
+
+    tail(colnames(curr))
+    colnames(curr) <- gsub('alien_merged_filtered.bam.alien_', '', colnames(curr))
+    for (modality in c('tso', 'wta')) {
+        alien[[sprintf('%s_%s', modality, 'filt')]][[experiment]] <- curr[,grep(modality, colnames(curr))]
+    }
+}
+
+```
+
+
+```{r}
+knitr::knit_exit('')
+```
+
+
+
+rm(list=ls())
+library(Seurat)
+library(dplyr)
+library(patchwork)
+library(ggplot2)
+library(scDblFinder)
+library(BiocManager)
+library(tidyr)
+library(gridExtra)
+library(stringr)
+library(reshape2)
+library(Matrix)
+library(readr)
+library(rtracklayer)
+
+opts_chunk$set(fig.width = 5,
+               fig.height = 5,
+               cache = TRUE,
+               include = TRUE,
+               dev = "png",
+               cache.lazy = FALSE,
+               warning = TRUE,
+               message = TRUE)
+
+options(bitmapType='cairo')
+
+ID <- 'descriptive analysis RoCK and ROI'
+BASE <- file.path('/home', 'gmoro','RStudio','paper') # how to I simlink file????????????????
+WD <- file.path(BASE, ID)
+DATA_WTA <- file.path(BASE, 'RoCK_ROIWTA/RoCK_ROIWTA/Solo.out/Gene/filtered/') # is it ok to used filtered??????????????
+DATA_alien <- file.path(BASE, 'RoCK_ROIfeaturecounts/')
+DATA_TSO <- file.path(BASE,'RoCK_ROITSO/RoCK_ROITSO/Solo.out/Gene/filtered/')
+DOWNSAMPLE <- FALSE
+
+## setwd(WD)
+
+NTHREADS <- 10
+
+plan("multisession", workers = NTHREADS)
+options(future.globals.maxSize= 30e9)
+
+ac <- function(col, alpha=1){
+  apply(sapply(col, col2rgb)/255, 2, 
+        function(x) 
+          rgb(x[1], x[2], x[3], alpha=alpha))  
+}
+
+
+
+#WTA ANALYSIS 
+
+
+
+#WTA generating starsolo count matrix without alien chromosomes (those are in starsolo)
+
+
+
+
+# loading WTA count table 
+
+counts_RR_WTA <- readMM(file.path(DATA_WTA,'matrix.mtx'))
+genes_RR_WTA <- read.table(file.path(DATA_WTA,'features.tsv'), header = FALSE)
+gene_ids_RR_WTA <- genes_RR_WTA$V2
+cell_ids_RR_WTA <- read.table(file.path(DATA_WTA,'barcodes.tsv'), header = FALSE)$X1
+
+rownames(counts_RR_WTA) <- gene_ids_RR_WTA
+colnames(counts_RR_WTA) <- cell_ids_RR_WTA
+
+# removing alien chromosomes from WTA --> should we do this??????????????????????????
+
+rownames(RR_WTA)[1:111]
+RR_WTA<-RR_WTA[112:length(rownames(RR_WTA)),]
+head(rownames(RR_WTA))
+
+
+
+
+
+#Adding information from featurecounts table to alien chromosomes 
+
+RR_table<-read.table(file.path(DATA_alien,'alien_only'),header=TRUE)
+
+RR_table$Geneid[7] <- "capture_sequence_double_egfp_1"
+
+rownames(RR_table) <- RR_table$Geneid
+RR_table <- RR_table[1:20, -c(1:6)] 
+
+RR_tso_table <- RR_table[,grep('tso', colnames(RR_table))]
+RR_wta_table <- RR_table[,grep('wta', colnames(RR_table))]
+
+# adapting colnames 
+
+colnames(RR_wta_table)
+
+b <- data.frame(barcodes=character()) # to optimize????????????????
+for (i in 1:length(colnames(RR_wta_table))){
+  new<-paste(strsplit(colnames(RR_wta_table),'_')[[i]][5],'_',strsplit(colnames(RR_wta_table),'_')[[i]][6],'_',strsplit(colnames(RR_wta_table),'_')[[i]][7],sep="")
+  print(new)
+  b[i,1]<-new
+}
+
+colnames(RR_wta_table) <- b$barcodes
+
+saveRDS(RR_wta_table,file=file.path(BASE,'RR_WTA_table_correct.RData'))
+RR_wta_table<-readRDS(file = file.path(BASE,'RR_WTA_table_correct.RData'))
+
+# merging the two datasets --> sort and then merge --> how to do this better???????
+
+RR_wta_table<-data.matrix(RR_wta_table[,sort(colnames(RR_wta_table))])
+RR_WTA<-RR_WTA[,sort(colnames(RR_WTA))]
+
+RR_WTA_combined <- rbind(RR_wta_table,RR_WTA)
+
+saveRDS(RR_WTA_combined,file=file.path(BASE,'RR_WTA_combined.RData'))
+RR_WTA_combined  <-readRDS(file = file.path(BASE,'RR_WTA_combined.RData'))
+
+# changing the gene names 
+
