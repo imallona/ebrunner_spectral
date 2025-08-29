@@ -1,3 +1,16 @@
+# This repo is deprecated and archived
+
+We have moved to:
+
+- [Paper repository](https://github.com/imallona/rock_roi_paper)
+- [Method repository](https://github.com/imallona/rock_roi_method)
+- [Chimeric reads debugging](https://github.com/imallona/rock_roi_debug) (perhaps private)
+
+And we have released several snapshots of these, including:
+
+- [Zenodo method](https://zenodo.org/records/11070201)
+- [Zenodo paper](https://zenodo.org/records/14881175)
+
 # Aim
 
 Erich Brunner's and Giulia Moro's spectral project:
